@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Image,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -189,7 +190,11 @@ export default function IntroSurveyScreen() {
 
                 <View style={styles.header}>
                     <View style={styles.logoCircle}>
-                        <IconSymbol name="list.clipboard.fill" size={32} color="#087179" />
+                        <Image
+                            source={require('@/assets/images/logo.jpeg')}
+                            style={{ width: 40, height: 40, borderRadius: 20 }}
+                            resizeMode="contain"
+                        />
                     </View>
                     <Text style={styles.title}>Let's get to know you more</Text>
                     <Text style={styles.subtitle}>Help us personalize your asthma management journey</Text>

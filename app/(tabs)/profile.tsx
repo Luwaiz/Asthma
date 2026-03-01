@@ -2,13 +2,16 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/context/AuthContext';
 import { auth } from '@/firebaseConfig';
 import { apiService } from '@/services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { updateProfile } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 
 function Medication() {
+  const { t } = useTranslation();
   const [medications, setMedications] = useState<any[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -79,7 +82,7 @@ function Medication() {
   return (
     <View style={styles.medicationContainer}>
       <View style={styles.medicationHeader}>
-        <Text style={styles.medicationText}>My Medication</Text>
+        <Text style={styles.medicationText}>{t('profile.medication')}</Text>
         <TouchableOpacity onPress={() => setModalVisible(true)}>
           <IconSymbol name="plus.circle.fill" size={30} color="#087179" />
         </TouchableOpacity>
@@ -176,10 +179,11 @@ const TRIGGER_ICONS: Record<string, string> = {
 };
 
 function Triggers({ triggers }: { triggers: string[] }) {
+  const { t } = useTranslation();
   if (!triggers || triggers.length === 0) {
     return (
       <View style={styles.triggersContainer}>
-        <Text style={styles.triggersText}>Triggers</Text>
+        <Text style={styles.triggersText}>{t('profile.triggers')}</Text>
         <Text style={{ color: 'gray' }}>No triggers recorded.</Text>
       </View>
     )
@@ -187,7 +191,7 @@ function Triggers({ triggers }: { triggers: string[] }) {
 
   return (
     <View style={styles.triggersContainer}>
-      <Text style={styles.triggersText}>My Triggers</Text>
+      <Text style={styles.triggersText}>{t('profile.triggers')}</Text>
       <ScrollView contentContainerStyle={styles.triggersListContainer} horizontal={true} showsHorizontalScrollIndicator={false}>
         {triggers.map((trigger, index) => {
           const iconName = TRIGGER_ICONS[trigger] || "exclamationmark.triangle.fill";
@@ -204,10 +208,11 @@ function Triggers({ triggers }: { triggers: string[] }) {
 }
 
 function EmergencyContact({ contact }: { contact: { name: string, phone: string } | undefined }) {
+  const { t } = useTranslation();
   if (!contact || !contact.name) {
     return (
       <View style={styles.emergencyContactContainer}>
-        <Text style={styles.emergencyContactText}>Emergency Contact</Text>
+        <Text style={styles.emergencyContactText}>{t('profile.emergencyContact')}</Text>
         <Text style={{ color: 'gray' }}>No emergency contact set.</Text>
       </View>
     )
@@ -215,7 +220,7 @@ function EmergencyContact({ contact }: { contact: { name: string, phone: string 
 
   return (
     <View style={styles.emergencyContactContainer}>
-      <Text style={styles.emergencyContactText}>Emergency Contact</Text>
+      <Text style={styles.emergencyContactText}>{t('profile.emergencyContact')}</Text>
       <View style={styles.emergencyContactListContainer}>
         <View style={styles.emergencyContactListContainerItem}>
           <IconSymbol name="person.fill" size={24} color="#087179" />
@@ -237,14 +242,23 @@ function EmergencyContact({ contact }: { contact: { name: string, phone: string 
 
 function Settings() {
   const { signOut, user } = useAuth();
+  const { t, i18n } = useTranslation();
   const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
+  const [languageModalVisible, setLanguageModalVisible] = useState(false);
 
-  const settingsItems = [
-    { id: '1', title: 'Language', value: 'English', icon: 'globe.americas.fill' },
-    { id: '2', title: 'Privacy Settings', icon: 'lock.shield.fill' },
-    { id: '3', title: 'Help & Support', icon: 'questionmark.circle.fill' },
-    { id: '4', title: 'Terms of Service', icon: 'doc.plaintext.fill' },
+  const languages = [
+    { label: 'English', value: 'en' },
+    { label: 'Français', value: 'fr' },
+    { label: 'Español', value: 'es' },
   ];
+
+  const currentLanguageLabel = languages.find(l => l.value === i18n.language)?.label || 'English';
+
+  const changeLanguage = async (lng: string) => {
+    await i18n.changeLanguage(lng);
+    await AsyncStorage.setItem('user-language', lng);
+    setLanguageModalVisible(false);
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -269,7 +283,7 @@ function Settings() {
 
   return (
     <View style={styles.settingsSection}>
-      <Text style={styles.settingsText}>Settings</Text>
+      <Text style={styles.settingsText}>{t('profile.settings')}</Text>
 
       <View style={styles.settingsBody}>
         {/* Toggle Setting */}
@@ -286,17 +300,40 @@ function Settings() {
           />
         </View>
 
-        {/* Regular Settings */}
-        {settingsItems.map((item) => (
-          <TouchableOpacity key={item.id} style={styles.settingCard}>
-            <View style={styles.settingIconWrapper}>
-              <IconSymbol name={item.icon as any} size={22} color="#087179" />
-            </View>
-            <Text style={styles.settingTitle}>{item.title}</Text>
-            {item.value && <Text style={styles.settingValue}>{item.value}</Text>}
-            <IconSymbol name="chevron.right" size={16} color="#9ca3af" />
-          </TouchableOpacity>
-        ))}
+        {/* Language Setting */}
+        <TouchableOpacity style={styles.settingCard} onPress={() => setLanguageModalVisible(true)}>
+          <View style={styles.settingIconWrapper}>
+            <IconSymbol name="globe.americas.fill" size={22} color="#087179" />
+          </View>
+          <Text style={styles.settingTitle}>{t('profile.language')}</Text>
+          <Text style={styles.settingValue}>{currentLanguageLabel}</Text>
+          <IconSymbol name="chevron.right" size={16} color="#9ca3af" />
+        </TouchableOpacity>
+
+        {/* Other Settings */}
+        <TouchableOpacity style={styles.settingCard}>
+          <View style={styles.settingIconWrapper}>
+            <IconSymbol name="lock.shield.fill" size={22} color="#087179" />
+          </View>
+          <Text style={styles.settingTitle}>{t('profile.privacy')}</Text>
+          <IconSymbol name="chevron.right" size={16} color="#9ca3af" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.settingCard}>
+          <View style={styles.settingIconWrapper}>
+            <IconSymbol name="questionmark.circle.fill" size={22} color="#087179" />
+          </View>
+          <Text style={styles.settingTitle}>{t('profile.help')}</Text>
+          <IconSymbol name="chevron.right" size={16} color="#9ca3af" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.settingCard}>
+          <View style={styles.settingIconWrapper}>
+            <IconSymbol name="doc.plaintext.fill" size={22} color="#087179" />
+          </View>
+          <Text style={styles.settingTitle}>{t('profile.terms')}</Text>
+          <IconSymbol name="chevron.right" size={16} color="#9ca3af" />
+        </TouchableOpacity>
 
         {/* Danger Zone */}
         <TouchableOpacity
@@ -365,6 +402,42 @@ function Settings() {
           <Text style={[styles.settingTitle, { color: '#ef4444' }]}>Delete Account</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Language Selection Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={languageModalVisible}
+        onRequestClose={() => setLanguageModalVisible(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setLanguageModalVisible(false)}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Language</Text>
+            <View style={{ gap: 12 }}>
+              {languages.map((lng) => (
+                <TouchableOpacity
+                  key={lng.value}
+                  style={[
+                    styles.languageOption,
+                    i18n.language === lng.value && styles.languageOptionActive
+                  ]}
+                  onPress={() => changeLanguage(lng.value)}
+                >
+                  <Text style={[
+                    styles.languageOptionText,
+                    i18n.language === lng.value && styles.languageOptionTextActive
+                  ]}>
+                    {lng.label}
+                  </Text>
+                  {i18n.language === lng.value && (
+                    <IconSymbol name="checkmark" size={20} color="white" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -933,13 +1006,13 @@ const styles = StyleSheet.create({
   },
   asthmaLevelSelector: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     marginBottom: 20,
   },
   asthmaLevelButton: {
     flex: 1,
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e5e7eb',
@@ -983,6 +1056,28 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   genderEditChipTextActive: {
+    color: 'white',
+  },
+  languageOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+  },
+  languageOptionActive: {
+    backgroundColor: '#087179',
+    borderColor: '#087179',
+  },
+  languageOptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  languageOptionTextActive: {
     color: 'white',
   },
 })

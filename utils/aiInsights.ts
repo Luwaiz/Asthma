@@ -4,6 +4,7 @@ export interface Insight {
     status: string;
     trend: string;
     color: string;
+    attackRisk?: string;
 }
 
 export const fetchAIInsights = async (): Promise<Insight> => {
@@ -19,7 +20,8 @@ export const fetchAIInsights = async (): Promise<Insight> => {
     return {
         status: "Insights Unavailable",
         trend: "We couldn't reach the AI service right now. Please check your connection.",
-        color: "gray"
+        color: "gray",
+        attackRisk: "LOW"
     };
 };
 

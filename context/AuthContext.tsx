@@ -8,6 +8,7 @@ interface AuthContextType {
     loading: boolean;
     onboardingCompleted: boolean;
     streakCount: number;
+    userName: string;
     signOut: () => Promise<void>;
     refreshProfile: () => Promise<void>;
 }
@@ -17,6 +18,7 @@ const AuthContext = createContext<AuthContextType>({
     loading: true,
     onboardingCompleted: false,
     streakCount: 0,
+    userName: '',
     signOut: async () => { },
     refreshProfile: async () => { },
 });
@@ -26,6 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState(true);
     const [onboardingCompleted, setOnboardingCompleted] = useState(false);
     const [streakCount, setStreakCount] = useState(0);
+    const [userName, setUserName] = useState('');
 
     const refreshProfile = async () => {
         try {
@@ -33,6 +36,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (profile) {
                 setOnboardingCompleted(!!profile.onboardingCompleted);
                 setStreakCount(profile.streakCount || 0);
+                if (profile.displayName) {
+                    setUserName(profile.displayName);
+                }
             }
         } catch (error) {
             console.error('Error refreshing profile:', error);
@@ -63,7 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, onboardingCompleted, streakCount, signOut, refreshProfile }}>
+        <AuthContext.Provider value={{ user, loading, onboardingCompleted, streakCount, userName, signOut, refreshProfile }}>
             {children}
         </AuthContext.Provider>
     );

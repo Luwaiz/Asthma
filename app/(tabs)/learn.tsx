@@ -2,6 +2,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import * as WebBrowser from 'expo-web-browser';
 import React from 'react';
 import {
+    Dimensions,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -9,6 +10,8 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+
+const { width } = Dimensions.get('window');
 
 const Card = ({
     title,
@@ -50,8 +53,11 @@ export default function Learn() {
             </View>
 
             <ScrollView
-                showsVerticalScrollIndicator={false}
+                horizontal
+                showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
+                snapToInterval={width * 0.85 + 16}
+                decelerationRate="fast"
             >
                 {/* HOW DO INHALERS WORK */}
                 <Card
@@ -178,7 +184,7 @@ export default function Learn() {
                     </View>
                 </Card>
 
-                <View style={{ height: 20 }} />
+                <View style={{ width: 20 }} />
             </ScrollView>
         </View>
     );
@@ -194,7 +200,7 @@ const styles = StyleSheet.create({
     header: {
         width: '100%',
         paddingHorizontal: 20,
-        paddingBottom: 16,
+        paddingVertical: 16,
     },
 
     headerText: {
@@ -205,13 +211,15 @@ const styles = StyleSheet.create({
 
     scrollContent: {
         paddingHorizontal: 20,
-        paddingBottom: 20,
+        paddingVertical: 10,
     },
 
     card: {
+        width: width * 0.85,
         borderRadius: 20,
         padding: 20,
-        marginBottom: 16,
+        marginRight: 16,
+        marginBottom: 10,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,

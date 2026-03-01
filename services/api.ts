@@ -1,6 +1,6 @@
 import { auth } from '@/firebaseConfig';
 
-const BASE_URL = 'http://172.20.10.3:5000/api';
+const BASE_URL = 'https://asthma-22fq.onrender.com/api';
 
 const getHeaders = async () => {
   const token = await auth.currentUser?.getIdToken();

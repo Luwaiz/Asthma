@@ -5,6 +5,7 @@ import DateTimePicker from '@react-native-community/datetimepicker'
 import * as Notifications from 'expo-notifications'
 import { Stack } from "expo-router"
 import React, { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
 
 interface ReminderItem {
@@ -89,11 +90,16 @@ const Reminder = () => {
     const onTimeChange = (event: any, selectedDate?: Date) => {
         const currentDate = selectedDate || date;
         setShowTimePicker(Platform.OS === 'ios');
-        setDate(currentDate);
 
         if (event.type === "set" || Platform.OS === 'ios') {
-            const formattedTime = currentDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            setTime(formattedTime);
+            setDate(currentDate);
+            // Consistent formatting: HH:mm AM/PM
+            const hours = currentDate.getHours();
+            const minutes = currentDate.getMinutes();
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            const displayHours = hours % 12 || 12;
+            const displayMinutes = minutes < 10 ? `0${minutes}` : minutes;
+            setTime(`${displayHours}:${displayMinutes} ${ampm}`);
         }
 
         if (Platform.OS === 'android') {
@@ -140,6 +146,8 @@ const Reminder = () => {
         }
     };
 
+    const { t } = useTranslation();
+
     const handleAddReminder = async () => {
         if (!title.trim() || !time.trim()) {
             return Alert.alert('Error', 'Title and Time are required');
@@ -159,37 +167,56 @@ const Reminder = () => {
             });
             setReminders([...reminders, newReminder]);
 
-            // Schedule Local Notification
             try {
-                const [timeStr, modifier] = time.split(' ');
-                let [hours, minutes] = timeStr.split(':').map(Number);
-                if (modifier === 'PM' && hours < 12) hours += 12;
-                if (modifier === 'AM' && hours === 12) hours = 0;
+                // Get hours and minutes directly from the Date object to avoid fragile string parsing
+                const hours = date.getHours();
+                const minutes = date.getMinutes();
 
-                const trigger = new Date();
-                if (type === 'appointment' && formattedDate) {
-                    const appointmentDateObj = new Date(formattedDate);
-                    trigger.setFullYear(appointmentDateObj.getFullYear());
-                    trigger.setMonth(appointmentDateObj.getMonth());
-                    trigger.setDate(appointmentDateObj.getDate());
+                let trigger: Notifications.NotificationTriggerInput;
+
+                if (newReminder.type === 'medication') {
+                    // Daily repeating notification
+                    trigger = {
+                        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+                        hour: hours,
+                        minute: minutes,
+                    } as Notifications.DailyTriggerInput;
+                } else {
+                    // One-time appointment notification
+                    // Use appointmentDate state directly instead of parsing localized string
+                    const appointmentDateObj = new Date(appointmentDate);
+                    appointmentDateObj.setHours(hours, minutes, 0, 0);
+
+                    if (appointmentDateObj < new Date()) {
+                        console.warn("Appointment date is in the past, not scheduling notification.");
+                        trigger = null;
+                    } else {
+                        trigger = {
+                            type: Notifications.SchedulableTriggerInputTypes.DATE,
+                            date: appointmentDateObj
+                        } as Notifications.DateTriggerInput;
+                    }
                 }
-                trigger.setHours(hours, minutes, 0, 0);
 
-                // If the time has already passed today and it's a medication, schedule for tomorrow
-                if (trigger < new Date() && type === 'medication') {
-                    trigger.setDate(trigger.getDate() + 1);
-                }
+                if (trigger) {
+                    const notificationTitle = newReminder.type === 'medication'
+                        ? t('home.medicationReminderTitle')
+                        : t('home.appointmentReminderTitle');
 
-                if (trigger > new Date()) {
                     await Notifications.scheduleNotificationAsync({
                         content: {
-                            title: type === 'medication' ? 'Medication Reminder' : 'Appointment Reminder',
+                            title: notificationTitle,
                             body: `${title}${subtitle ? `: ${subtitle}` : ''}`,
                             data: { reminderId: newReminder._id || newReminder.id },
-                        },
-                        trigger: trigger as any,
+                            android: {
+                                channelId: 'default',
+                            },
+                            // @ts-ignore - interruptionLevel is supported in newer expo-notifications for iOS
+                            interruptionLevel: 'timeSensitive',
+                        } as any,
+                        trigger,
                     });
-                    console.log(`Notification scheduled for: ${trigger.toLocaleString()}`);
+                    console.log(`Notification scheduled for: ${newReminder.type} at ${hours}:${minutes}`);
                 }
             } catch (notifyErr) {
                 console.error("Failed to schedule notification:", notifyErr);
@@ -212,9 +239,22 @@ const Reminder = () => {
 
     const handleDeleteReminder = async (id: string) => {
         try {
+            // 1. Delete from backend
             await apiService.deleteReminder(id);
-            setReminders(reminders.filter(r => (r._id || r.id) !== id));
+
+            // 2. Update local state
+            setReminders(prev => prev.filter(r => (r._id || r.id) !== id));
+
+            // 3. Cancel scheduled notifications for this reminder
+            const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+            for (const notification of scheduled) {
+                if (notification.content.data?.reminderId === id) {
+                    await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+                    console.log(`Cancelled notification: ${notification.identifier} for reminder: ${id}`);
+                }
+            }
         } catch (e) {
+            console.error("Delete reminder error:", e);
             Alert.alert('Error', 'Failed to delete reminder');
         }
     };
@@ -603,3 +643,5 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
 })
+
+

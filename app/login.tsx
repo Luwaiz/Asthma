@@ -5,6 +5,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth'
 import React, { useState } from 'react'
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -76,7 +77,11 @@ const Login = () => {
         <View style={styles.headerSection}>
           <View style={styles.logoContainer}>
             <View style={styles.logoCircle}>
-              <IconSymbol name="heart.text.square.fill" size={40} color="#087179" />
+              <Image
+                source={require('@/assets/images/logo.jpeg')}
+                style={{ width: 60, height: 60, borderRadius: 30 }}
+                resizeMode="contain"
+              />
             </View>
           </View>
           <Text style={styles.welcomeText}>Welcome Back</Text>

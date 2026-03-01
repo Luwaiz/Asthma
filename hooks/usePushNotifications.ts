@@ -2,18 +2,21 @@ import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { useEffect, useRef, useState } from "react";
-import { Alert, Platform } from "react-native";
+import { Platform } from "react-native";
 
 export interface PushNotification {
     notification?: Notifications.Notification;
     expoPushToken?: string;
+    refreshRegistration: () => Promise<void>;
 }
 
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
         shouldShowAlert: true,
-        shouldPlaySound: false,
+        shouldPlaySound: true,
         shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
     }),
 });
 
@@ -21,8 +24,8 @@ export const usePushNotifications = (): PushNotification => {
     const [expoPushToken, setExpoPushToken] = useState<string | undefined>();
     const [notification, setNotification] = useState<Notifications.Notification | undefined>();
 
-    const notificationListener = useRef<Notifications.EventSubscription>();
-    const responseListener = useRef<Notifications.EventSubscription>();
+    const notificationListener = useRef<Notifications.EventSubscription | undefined>(undefined);
+    const responseListener = useRef<Notifications.EventSubscription | undefined>(undefined);
 
     async function registerForPushNotificationsAsync() {
         let token;
@@ -34,7 +37,7 @@ export const usePushNotifications = (): PushNotification => {
                 finalStatus = status;
             }
             if (finalStatus !== 'granted') {
-                Alert.alert('Error', 'Failed to get push token for push notification!');
+                console.warn('Failed to get push token for push notification!');
                 return;
             }
             
@@ -46,11 +49,16 @@ export const usePushNotifications = (): PushNotification => {
             }
             
             try {
-                token = (await Notifications.getExpoPushTokenAsync({
+                const expoToken = await Notifications.getExpoPushTokenAsync({
                     projectId
-                })).data;
-            } catch (e) {
+                });
+                token = expoToken.data;
+                console.log("Expo Push Token obtained:", token);
+            } catch (e: any) {
                 console.error("Error getting push token:", e);
+                if (Platform.OS === 'android' && e.message?.includes('FirebaseApp is not initialized')) {
+                    console.warn("FCM is not configured for Android. Have you added google-services.json to your project and app.json?");
+                }
             }
 
             if (Platform.OS === 'android') {
@@ -58,19 +66,22 @@ export const usePushNotifications = (): PushNotification => {
                     name: 'default',
                     importance: Notifications.AndroidImportance.MAX,
                     vibrationPattern: [0, 200, 200, 200],
-                    lightColor: '#FF231F7C',
+                    lightColor: '#087179',
                 });
             }
-
-            console.log("Expo Push Token:", token);
         } else {
-            Alert.alert('Error', 'Must use physical device for Push Notifications');
+            console.log('Must use physical device for Remote Push Notifications');
         }
         return token;
     }
 
+    const refreshRegistration = async () => {
+        const token = await registerForPushNotificationsAsync();
+        setExpoPushToken(token);
+    };
+
     useEffect(() => {
-        registerForPushNotificationsAsync().then((token) => setExpoPushToken(token));
+        refreshRegistration();
 
         notificationListener.current = Notifications.addNotificationReceivedListener((notification) => {
             setNotification(notification);
@@ -82,13 +93,13 @@ export const usePushNotifications = (): PushNotification => {
 
         return () => {
             if (notificationListener.current) {
-                Notifications.removeNotificationSubscription(notificationListener.current);
+                notificationListener.current.remove();
             }
             if (responseListener.current) {
-                Notifications.removeNotificationSubscription(responseListener.current);
+                responseListener.current.remove();
             }
         };
     }, []);
 
-    return { expoPushToken, notification };
+    return { expoPushToken, notification, refreshRegistration };
 };

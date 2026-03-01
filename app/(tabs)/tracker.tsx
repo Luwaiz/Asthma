@@ -1,10 +1,12 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { apiService } from '@/services/api';
 import { fetchAIInsights, Insight } from '@/utils/aiInsights';
+import { scheduleDailyLogReminder } from '@/utils/notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 
 function InfoModal({ visible, onClose, title, content }: { visible: boolean, onClose: () => void, title: string, content: string }) {
@@ -283,10 +285,59 @@ const tracker = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [infoModal, setInfoModal] = useState({ visible: false, title: '', content: '' });
   const isInitialMount = useRef(true);
+  const hasCheckedLogsRef = useRef(false);
 
   useEffect(() => {
     loadAllLogs();
   }, []);
+
+  useEffect(() => {
+    const checkLogFrequency = async () => {
+      // Prevent running multiple times per mount
+      if (hasCheckedLogsRef.current) return;
+      if (allLogs.length === 0) return;
+
+      hasCheckedLogsRef.current = true;
+
+      const hasSeenPrompt = await AsyncStorage.getItem('HAS_SEEN_DAILY_REMINDER_PROMPT');
+      if (hasSeenPrompt === 'true') return;
+
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      sevenDaysAgo.setHours(0, 0, 0, 0);
+
+      const logsLast7Days = allLogs.filter(l => new Date(l.date) >= sevenDaysAgo);
+      const uniqueLogDates = new Set(logsLast7Days.map(l => new Date(l.date).toDateString()));
+
+      if (uniqueLogDates.size <= 5) { // 2 or more days missed in the last 7 days
+        Alert.alert(
+          "Friendly Reminder",
+          "You've missed your daily log twice recently. Would you like to set a daily reminder at 8 AM?",
+          [
+            {
+              text: "No, thanks",
+              style: "cancel",
+              onPress: () => AsyncStorage.setItem('HAS_SEEN_DAILY_REMINDER_PROMPT', 'true')
+            },
+            {
+              text: "Yes, set reminder",
+              onPress: async () => {
+                await AsyncStorage.setItem('HAS_SEEN_DAILY_REMINDER_PROMPT', 'true');
+                const success = await scheduleDailyLogReminder();
+                if (success) {
+                  Alert.alert("Success", "Daily reminder set for 8 AM.");
+                } else {
+                  Alert.alert("Error", "Failed to set reminder. Please try adding it manually from the Reminders tab.");
+                }
+              }
+            }
+          ]
+        );
+      }
+    };
+
+    checkLogFrequency();
+  }, [allLogs]);
 
   useEffect(() => {
     if (paramDate) {
@@ -313,12 +364,14 @@ const tracker = () => {
     try {
       const cached = await AsyncStorage.getItem('AI_INSIGHTS_CACHE');
       if (cached) {
-        const { data } = JSON.parse(cached);
+        const { data, timestamp } = JSON.parse(cached);
         setInsight(data);
+        return timestamp;
       }
     } catch (error) {
       console.error('Error loading cached insights:', error);
     }
+    return null;
   };
 
   const loadInsight = async (force = false) => {
@@ -330,6 +383,36 @@ const tracker = () => {
       try {
         const newInsight = await fetchAIInsights();
         setInsight(newInsight);
+
+        // Emergency Intervention Check
+        if (newInsight.attackRisk === 'HIGH') {
+          const lastAlertTimestamp = await AsyncStorage.getItem('LAST_EMERGENCY_ALERT_TIME');
+          const now = Date.now();
+          // Only alert once every 12 hours to prevent spam
+          const twelveHoursMs = 12 * 60 * 60 * 1000;
+
+          if (!lastAlertTimestamp || (now - Number(lastAlertTimestamp) > twelveHoursMs)) {
+            await AsyncStorage.setItem('LAST_EMERGENCY_ALERT_TIME', now.toString());
+
+            Alert.alert(
+              "Asthma Emergency Risk",
+              "AI analysis detects a high risk of an impending asthma attack based on your recent logs. Please follow your Asthma Action Plan or seek medical attention if necessary.",
+              [{ text: "Understood", style: "destructive" }]
+            );
+
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title: "⚠️ High Asthma Attack Risk",
+                body: "Your recent logs indicate a high risk of an attack. Please take your rescue inhaler if needed and follow your Action Plan.",
+                android: { channelId: 'default' },
+                sound: 'default',
+                // @ts-ignore
+                interruptionLevel: 'critical',
+              } as any,
+              trigger: null, // Send immediately
+            });
+          }
+        }
 
         // Save to cache with timestamp
         await AsyncStorage.setItem('AI_INSIGHTS_CACHE', JSON.stringify({
@@ -344,20 +427,31 @@ const tracker = () => {
     }
   };
 
-  useEffect(() => {
-    const initializeInsights = async () => {
-      // Load from cache first
-      await loadInsightFromCache();
+  useFocusEffect(
+    useCallback(() => {
+      const initializeInsights = async () => {
+        // 1. Load from cache first
+        const cacheTimestamp = await loadInsightFromCache();
 
-      // Only fetch fresh data on initial mount and if we have logs
-      if (isInitialMount.current && allLogs.length > 0) {
-        await loadInsight(true);
+        // 2. Check if stale
+        const insightStale = await AsyncStorage.getItem('AI_INSIGHTS_STALE');
+
+        const isCacheFromToday = cacheTimestamp ? new Date(cacheTimestamp).toDateString() === new Date().toDateString() : false;
+
+        // 3. Fetch if stale or cache is not from today
+        if (insightStale === 'true' || !isCacheFromToday) {
+          if (allLogs.length > 0) {
+            await loadInsight(true);
+            await AsyncStorage.removeItem('AI_INSIGHTS_STALE');
+          }
+        }
+
         isInitialMount.current = false;
-      }
-    };
+      };
 
-    initializeInsights();
-  }, [allLogs.length]); // Only watch logs count, not the entire array
+      initializeInsights();
+    }, [allLogs.length])
+  );
 
   const loadAllLogs = async () => {
     try {
@@ -417,8 +511,11 @@ const tracker = () => {
       await AsyncStorage.setItem('ASTHMA_DAILY_LOGS', JSON.stringify(updatedLogs));
       setAllLogs(updatedLogs);
 
-      // Set health status as stale so Home page refreshes it
+      // Set flags as stale so Home page refreshes them
       await AsyncStorage.setItem('HEALTH_STATUS_STALE', 'true');
+      await AsyncStorage.setItem('LOGS_STALE', 'true');
+      await AsyncStorage.setItem('REMINDERS_STALE', 'true');
+      await AsyncStorage.setItem('AI_INSIGHTS_STALE', 'true');
 
       // 3. Reset form
       setSymptoms([{ id: Date.now().toString(), name: '', description: '', severity: 0 }]);

@@ -89,7 +89,8 @@ const getBasicFallback = (type, reason = null) => {
             trend: isRateLimit
                 ? "The AI service is currently experiencing high traffic. Please try refreshing in a minute."
                 : "Your symptoms have been recorded. Continue tracking to see trends over time.",
-            color: isRateLimit ? "#f59e0b" : "#087179" // Orange for busy, Teal for success
+            color: isRateLimit ? "#f59e0b" : "#087179", // Orange for busy, Teal for success
+            attackRisk: "LOW" // Default safe fallback
         };
     } else {
         return {
@@ -118,6 +119,7 @@ const getInsights = async (logs, userContext = {}) => {
 
     Analyze the following list of daily logs from this user and provide concise, helpful medical-contextual insights.
     Focus on trends, potential triggers, and if the symptoms seem to be getting better or worse.
+    CRITICAL: Analyze for impending asthma attacks. If symptoms are rapidly worsening or PEF is declining heavily, set attackRisk to "HIGH". Otherwise, "MODERATE" or "LOW".
     Tailor your advice to the user's age and gender where relevant.
     
     Logs:
@@ -127,7 +129,8 @@ const getInsights = async (logs, userContext = {}) => {
     {
         "status": "A short status label (e.g., Well Controlled, Action Needed, Moderate Risk)",
         "trend": "A detailed explanation of the trend observed (1-2 sentences)",
-        "color": "A hex color code representing the status (Green: #10b981, Orange: #f59e0b, Red: #ef4444)"
+        "color": "A hex color code representing the status (Green: #10b981, Orange: #f59e0b, Red: #ef4444)",
+        "attackRisk": "Either 'LOW', 'MODERATE', or 'HIGH'"
     }
     `;
 

@@ -6,6 +6,7 @@ import { fetchAIHealthStatus, HealthStatus } from "@/utils/aiInsights";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
 	ActivityIndicator,
 	Dimensions,
@@ -330,29 +331,40 @@ export default function HomeScreen() {
 
 	useFocusEffect(
 		useCallback(() => {
-			loadRecentLogs();
-			loadReminders();
-			checkStreakModal();
+			const initializeData = async () => {
+				// 1. Check for stale flags
+				const logsStale = await AsyncStorage.getItem('LOGS_STALE');
+				const remindersStale = await AsyncStorage.getItem('REMINDERS_STALE');
+				const healthStatusStale = await AsyncStorage.getItem('HEALTH_STATUS_STALE');
 
-			const checkAndRefresh = async () => {
-				// Load from cache first
+				// 2. Load data
+				// If it's the initial mount, force a refresh for everything
+				const forceAll = isInitialMount.current;
+
+				await loadRecentLogs(forceAll || logsStale === 'true');
+				await loadReminders(forceAll || remindersStale === 'true');
+				await checkStreakModal();
+
+				// 3. Health status logic
 				await loadHealthStatusFromCache();
-
-				// Only fetch fresh data if this is initial mount or data is stale
-				const isStale = await AsyncStorage.getItem('HEALTH_STATUS_STALE');
-
-				if (isInitialMount.current || isStale === 'true') {
+				if (forceAll || healthStatusStale === 'true') {
 					await loadHealthStatus();
 					await AsyncStorage.removeItem('HEALTH_STATUS_STALE');
-					isInitialMount.current = false;
 				}
+
+				// 4. Clear stale flags after refresh
+				if (logsStale === 'true') await AsyncStorage.removeItem('LOGS_STALE');
+				if (remindersStale === 'true') await AsyncStorage.removeItem('REMINDERS_STALE');
+
+				isInitialMount.current = false;
 			};
 
-			checkAndRefresh();
+			initializeData();
 		}, [])
 	);
 
-	const { user, streakCount } = useAuth();
+	const { user, streakCount, userName } = useAuth();
+	const { t } = useTranslation();
 
 	const checkStreakModal = async () => {
 		try {
@@ -398,10 +410,14 @@ export default function HomeScreen() {
 		}
 	};
 
-	const loadReminders = async () => {
+	const loadReminders = async (force = false) => {
 		try {
-			const data = await apiService.getReminders();
-			setReminders(data);
+			// Always load from backend if forced, otherwise we could just keep existing state
+			// But for reminders, we don't have a local cache yet, so we fetch if forced.
+			if (force || reminders.length === 0) {
+				const data = await apiService.getReminders();
+				setReminders(data);
+			}
 		} catch (error) {
 			console.error('Error loading reminders on dashboard:', error);
 		} finally {
@@ -409,9 +425,9 @@ export default function HomeScreen() {
 		}
 	};
 
-	const loadRecentLogs = async () => {
+	const loadRecentLogs = async (force = false) => {
 		try {
-			// Try local first
+			// 1. Try local first for immediate display
 			const stored = await AsyncStorage.getItem('ASTHMA_DAILY_LOGS');
 			if (stored) {
 				const parsed = JSON.parse(stored);
@@ -421,14 +437,16 @@ export default function HomeScreen() {
 				setRecentLogs(parsed.slice(0, 5));
 			}
 
-			// Then sync with backend
-			const remoteLogs = await apiService.getLogs();
-			if (remoteLogs && Array.isArray(remoteLogs)) {
-				// Sort by date descending
-				remoteLogs.sort((a: Log, b: Log) => new Date(b.date).getTime() - new Date(a.date).getTime());
-				setAllLogs(remoteLogs);
-				setRecentLogs(remoteLogs.slice(0, 5));
-				await AsyncStorage.setItem('ASTHMA_DAILY_LOGS', JSON.stringify(remoteLogs));
+			// 2. Only sync with backend if forced (initial mount or stale)
+			if (force) {
+				const remoteLogs = await apiService.getLogs();
+				if (remoteLogs && Array.isArray(remoteLogs)) {
+					// Sort by date descending
+					remoteLogs.sort((a: Log, b: Log) => new Date(b.date).getTime() - new Date(a.date).getTime());
+					setAllLogs(remoteLogs);
+					setRecentLogs(remoteLogs.slice(0, 5));
+					await AsyncStorage.setItem('ASTHMA_DAILY_LOGS', JSON.stringify(remoteLogs));
+				}
 			}
 		} catch (error) {
 			console.error('Error loading logs on dashboard:', error);
@@ -454,14 +472,20 @@ export default function HomeScreen() {
 	const today = new Date();
 	const formattedToday = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
-	const displayName = user?.displayName || user?.email?.split('@')[0] || 'User';
+	const displayName = userName || user?.displayName || user?.email?.split('@')[0] || 'User';
 
 	return (
 		<View style={styles.container}>
 			<View style={styles.header}>
 				<View style={styles.leftHeader}>
 					<Text style={styles.date}>{formattedToday}</Text>
-					<Text style={styles.indexText}>Good Morning, {displayName}</Text>
+					{(() => {
+						const hour = today.getHours();
+						let greetingKey = 'home.goodMorning';
+						if (hour >= 12 && hour < 17) greetingKey = 'home.goodAfternoon';
+						else if (hour >= 17) greetingKey = 'home.goodEvening';
+						return <Text style={styles.indexText}>{t(greetingKey)}, {displayName}</Text>;
+					})()}
 				</View>
 				<View style={styles.rightHeader}>
 					<View style={styles.streakContainer}>
@@ -492,7 +516,7 @@ export default function HomeScreen() {
 				/>
 				<View style={styles.medicationReminderContainer}>
 					<View style={styles.medicationReminderContainerLeft}>
-						<Text style={styles.medicationReminderText}>Medication Reminder</Text>
+						<Text style={styles.medicationReminderText}>{t('home.medicationReminders')}</Text>
 						<Pressable onPress={() => router.push("/reminder")}>
 							<Text style={styles.viewAllText}>View All</Text>
 						</Pressable>
@@ -501,7 +525,7 @@ export default function HomeScreen() {
 
 					<View style={styles.medicalHistoryContainer}>
 						<View style={styles.medicationReminderContainerLeft}>
-							<Text style={styles.medicalHistoryText}>Recent Activity</Text>
+							<Text style={styles.medicalHistoryText}>{t('home.recentActivity')}</Text>
 							<Pressable onPress={() => router.push("/history")}>
 								<Text style={styles.viewAllText}>View All</Text>
 							</Pressable>
@@ -542,14 +566,16 @@ const styles = StyleSheet.create({
 		flexDirection: "row",
 		alignItems: "center",
 		marginBottom: 20,
+		marginTop: 20,
+		justifyContent:"space-between"
 	},
 	leftHeader: {
-		width: "70%",
+		width: "65%",
 		height: "100%",
 		justifyContent: "center",
 	},
 	rightHeader: {
-		width: "30%",
+		width: "25%",
 		height: "100%",
 		flexDirection: "row",
 		justifyContent: "flex-end",
@@ -560,8 +586,8 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'center',
 		backgroundColor: '#fff',
-		paddingHorizontal: 10,
-		paddingVertical: 5,
+		paddingHorizontal: 7,
+		paddingVertical: 3,
 		borderRadius: 20,
 		borderWidth: 1,
 		borderColor: '#e5e7eb',
@@ -574,10 +600,10 @@ const styles = StyleSheet.create({
 	},
 	notificationContainer: {
 		width: "50%",
-		height: "80%",
+		height: "60%",
 		justifyContent: "center",
 		alignItems: "center",
-		borderRadius: 50,
+		borderRadius: 100,
 		backgroundColor: "lightgray",
 
 	},

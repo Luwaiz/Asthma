@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Dimensions,
     Modal,
@@ -18,6 +19,19 @@ interface StreakModalProps {
 }
 
 export const StreakModal: React.FC<StreakModalProps> = ({ visible, streakCount, onClose }) => {
+    const { t } = useTranslation();
+
+    const getStreakType = () => {
+        if (streakCount > 0 && streakCount % 30 === 0) return 'monthly';
+        if (streakCount > 0 && streakCount % 7 === 0) return 'weekly';
+        return 'daily';
+    };
+
+    const streakType = getStreakType();
+    const title = t(`home.modal.${streakType}.title`, { count: streakCount });
+    const message = t(`home.modal.${streakType}.message`, { count: streakCount });
+    const buttonText = t(`home.modal.${streakType}.button`);
+
     return (
         <Modal
             animationType="fade"
@@ -28,19 +42,40 @@ export const StreakModal: React.FC<StreakModalProps> = ({ visible, streakCount, 
             <View style={styles.overlay}>
                 <View style={styles.container}>
                     <View style={styles.fireContainer}>
-                        <IconSymbol name="flame.fill" size={80} color="#ff4500" />
+                        <IconSymbol
+                            name="flame.fill"
+                            size={80}
+                            color={streakType === 'monthly' ? '#ffd700' : streakType === 'weekly' ? '#4f46e5' : '#ff4500'}
+                        />
                         <View style={styles.countBadge}>
-                            <Text style={styles.countText}>{streakCount}</Text>
+                            <Text style={[
+                                styles.countText,
+                                { color: streakType === 'monthly' ? '#b8860b' : streakType === 'weekly' ? '#4f46e5' : '#ff4500' }
+                            ]}>
+                                {streakCount}
+                            </Text>
                         </View>
                     </View>
 
-                    <Text style={styles.title}>{streakCount} Day Streak!</Text>
+                    <Text style={styles.title}>{title}</Text>
                     <Text style={styles.message}>
-                        You're doing great! Keep up the daily checks to manage your asthma effectively.
+                        {message}
                     </Text>
 
-                    <TouchableOpacity style={styles.button} onPress={onClose}>
-                        <Text style={styles.buttonText}>Awesome!</Text>
+                    <TouchableOpacity
+                        style={[
+                            styles.button,
+                            streakType === 'weekly' && { backgroundColor: '#4f46e5' },
+                            streakType === 'monthly' && { backgroundColor: '#ffd700' }
+                        ]}
+                        onPress={onClose}
+                    >
+                        <Text style={[
+                            styles.buttonText,
+                            streakType === 'monthly' && { color: '#000' }
+                        ]}>
+                            {buttonText}
+                        </Text>
                     </TouchableOpacity>
                 </View>
             </View>
