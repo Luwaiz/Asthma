@@ -10,7 +10,6 @@ import {
     Image,
     KeyboardAvoidingView,
     Platform,
-    Pressable,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -57,7 +56,7 @@ export default function IntroSurveyScreen() {
     // Dynamic Symptoms State
     const [symptoms, setSymptoms] = useState<{ id: string, type: string, severity: number, duration: string }[]>([]);
 
-    const { refreshProfile } = useAuth();
+    const { refreshProfile, userName } = useAuth();
 
     const toggleTrigger = (trigger: string) => {
         if (triggers.includes(trigger)) {
@@ -113,6 +112,7 @@ export default function IntroSurveyScreen() {
         try {
             // 1. Update Profile (including Medical Conditions, Age, Gender)
             await apiService.updateUserProfile({
+                displayName: userName || undefined,
                 triggers,
                 medicalConditions,
                 yearsWithAsthma,
@@ -169,7 +169,7 @@ export default function IntroSurveyScreen() {
     return (
         <KeyboardAvoidingView
             style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
@@ -345,26 +345,23 @@ export default function IntroSurveyScreen() {
                                 </ScrollView>
                             </View>
                             <View style={styles.severityRow}>
-                                <Text style={styles.pickerLabel}>Severity: {symp.severity === 0 ? 'Mild' : symp.severity === 1 ? 'Moderate' : symp.severity === 2 ? 'Severe' : ''}</Text>
-                                <View style={styles.severityButtons}>
+                                <Text style={styles.pickerLabel}>Severity:</Text>
+                                <View style={styles.severityChipContainer}>
                                     {['Mild', 'Moderate', 'Severe'].map((label, idx) => (
                                         <TouchableOpacity
                                             key={idx}
                                             onPress={() => updateSymptom(index, 'severity', idx)}
                                             style={[
-                                                styles.severityNum,
-                                                symp.severity === idx && styles.severityNumSelected,
-                                                idx === 0 && { borderColor: '#10b981' },
-                                                idx === 1 && { borderColor: '#f59e0b' },
-                                                idx === 2 && { borderColor: '#ef4444' },
-                                                symp.severity === idx && idx === 0 && { backgroundColor: '#10b981' },
-                                                symp.severity === idx && idx === 1 && { backgroundColor: '#f59e0b' },
-                                                symp.severity === idx && idx === 2 && { backgroundColor: '#ef4444' },
+                                                styles.severityChip,
+                                                symp.severity === idx && {
+                                                    backgroundColor: idx === 0 ? '#10b981' : idx === 1 ? '#f59e0b' : '#ef4444',
+                                                    borderColor: idx === 0 ? '#10b981' : idx === 1 ? '#f59e0b' : '#ef4444'
+                                                }
                                             ]}
                                         >
                                             <Text style={[
-                                                styles.severityNumText,
-                                                symp.severity === idx && styles.severityNumTextSelected
+                                                styles.severityChipText,
+                                                symp.severity === idx && styles.severityChipTextSelected
                                             ]}>{label}</Text>
                                         </TouchableOpacity>
                                     ))}
@@ -476,17 +473,18 @@ export default function IntroSurveyScreen() {
             </ScrollView>
 
             <View style={styles.footer}>
-                <Pressable
+                <TouchableOpacity
                     style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
                     onPress={handleSubmit}
                     disabled={isSubmitting}
+                    activeOpacity={0.8}
                 >
                     {isSubmitting ? (
                         <ActivityIndicator color="white" />
                     ) : (
                         <Text style={styles.submitButtonText}>Complete Setup</Text>
                     )}
-                </Pressable>
+                </TouchableOpacity>
             </View>
         </KeyboardAvoidingView>
     );
@@ -645,31 +643,26 @@ const styles = StyleSheet.create({
     severityRow: {
         marginBottom: 12,
     },
-    severityButtons: {
-        flexDirection: 'row',
-        gap: 10,
+    severityChipContainer: {
+        flexDirection: "row",
+        gap: 8,
+        flexWrap: "wrap",
     },
-    severityNum: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+    severityChip: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#e5e7eb',
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#f9fafb',
+        borderColor: "#e5e7eb",
+        backgroundColor: "white",
     },
-    severityNumSelected: {
-        backgroundColor: '#087179',
-        borderColor: '#087179',
+    severityChipText: {
+        fontSize: 13,
+        fontWeight: "600",
+        color: "#6b7280",
     },
-    severityNumText: {
-        fontSize: 14,
-        color: '#6b7280',
-    },
-    severityNumTextSelected: {
-        color: 'white',
-        fontWeight: 'bold',
+    severityChipTextSelected: {
+        color: "white",
     },
     inputWrapper: {
         flexDirection: 'row',

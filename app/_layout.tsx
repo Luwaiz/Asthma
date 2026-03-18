@@ -1,6 +1,5 @@
 import { AuthProvider } from "@/context/AuthContext";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import "@/i18n";
 import {
 	DarkTheme,
 	DefaultTheme,

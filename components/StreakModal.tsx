@@ -1,5 +1,4 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
 import {
     Dimensions,
     Modal,
@@ -19,18 +18,32 @@ interface StreakModalProps {
 }
 
 export const StreakModal: React.FC<StreakModalProps> = ({ visible, streakCount, onClose }) => {
-    const { t } = useTranslation();
-
-    const getStreakType = () => {
-        if (streakCount > 0 && streakCount % 30 === 0) return 'monthly';
-        if (streakCount > 0 && streakCount % 7 === 0) return 'weekly';
-        return 'daily';
+    const getStreakContent = () => {
+        if (streakCount > 0 && streakCount % 30 === 0) {
+            return {
+                title: 'Monthly Milestone!',
+                message: `Amazing! You've kept your streak for ${streakCount} days. Your commitment to managing your asthma is inspiring.`,
+                buttonText: 'Keep it going!',
+                streakType: 'monthly' as const
+            };
+        }
+        if (streakCount > 0 && streakCount % 7 === 0) {
+            return {
+                title: 'Weekly Warrior!',
+                message: `Great job! You've hit a ${streakCount} day streak. Consistency is key to better control.`,
+                buttonText: 'Awesome!',
+                streakType: 'weekly' as const
+            };
+        }
+        return {
+            title: 'Streak Active!',
+            message: `You're on a ${streakCount} day streak! Keep logging daily to stay on top of your health.`,
+            buttonText: 'Continue',
+            streakType: 'daily' as const
+        };
     };
 
-    const streakType = getStreakType();
-    const title = t(`home.modal.${streakType}.title`, { count: streakCount });
-    const message = t(`home.modal.${streakType}.message`, { count: streakCount });
-    const buttonText = t(`home.modal.${streakType}.button`);
+    const { title, message, buttonText, streakType } = getStreakContent();
 
     return (
         <Modal

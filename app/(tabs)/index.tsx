@@ -6,7 +6,6 @@ import { fetchAIHealthStatus, HealthStatus } from "@/utils/aiInsights";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
 import {
 	ActivityIndicator,
 	Dimensions,
@@ -364,7 +363,6 @@ export default function HomeScreen() {
 	);
 
 	const { user, streakCount, userName } = useAuth();
-	const { t } = useTranslation();
 
 	const checkStreakModal = async () => {
 		try {
@@ -472,7 +470,19 @@ export default function HomeScreen() {
 	const today = new Date();
 	const formattedToday = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
-	const displayName = userName || user?.displayName || user?.email?.split('@')[0] || 'User';
+	const getFormattedName = (name: string) => {
+		if (!name) return 'User';
+		// Only take the first name (before the first space)
+		const firstName = name.trim().split(/\s+/)[0];
+		// Truncate to 12 chars if too long
+		if (firstName.length > 12) {
+			return `${firstName.substring(0, 12)}...`;
+		}
+		return firstName;
+	};
+
+	const rawName = userName || user?.displayName || user?.email?.split('@')[0] || 'User';
+	const displayName = getFormattedName(rawName);
 
 	return (
 		<View style={styles.container}>
@@ -481,10 +491,10 @@ export default function HomeScreen() {
 					<Text style={styles.date}>{formattedToday}</Text>
 					{(() => {
 						const hour = today.getHours();
-						let greetingKey = 'home.goodMorning';
-						if (hour >= 12 && hour < 17) greetingKey = 'home.goodAfternoon';
-						else if (hour >= 17) greetingKey = 'home.goodEvening';
-						return <Text style={styles.indexText}>{t(greetingKey)}, {displayName}</Text>;
+						let greeting = 'Good morning';
+						if (hour >= 12 && hour < 17) greeting = 'Good afternoon';
+						else if (hour >= 17) greeting = 'Good evening';
+						return <Text style={styles.indexText}>{greeting}, {displayName}</Text>;
 					})()}
 				</View>
 				<View style={styles.rightHeader}>
@@ -516,7 +526,7 @@ export default function HomeScreen() {
 				/>
 				<View style={styles.medicationReminderContainer}>
 					<View style={styles.medicationReminderContainerLeft}>
-						<Text style={styles.medicationReminderText}>{t('home.medicationReminders')}</Text>
+						<Text style={styles.medicationReminderText}>Medication Reminders</Text>
 						<Pressable onPress={() => router.push("/reminder")}>
 							<Text style={styles.viewAllText}>View All</Text>
 						</Pressable>
@@ -525,7 +535,7 @@ export default function HomeScreen() {
 
 					<View style={styles.medicalHistoryContainer}>
 						<View style={styles.medicationReminderContainerLeft}>
-							<Text style={styles.medicalHistoryText}>{t('home.recentActivity')}</Text>
+							<Text style={styles.medicalHistoryText}>Recent Activity</Text>
 							<Pressable onPress={() => router.push("/history")}>
 								<Text style={styles.viewAllText}>View All</Text>
 							</Pressable>
@@ -567,7 +577,7 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		marginBottom: 20,
 		marginTop: 20,
-		justifyContent:"space-between"
+		justifyContent: "space-between"
 	},
 	leftHeader: {
 		width: "65%",

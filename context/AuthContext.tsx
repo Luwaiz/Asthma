@@ -38,6 +38,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setStreakCount(profile.streakCount || 0);
                 if (profile.displayName) {
                     setUserName(profile.displayName);
+
+                    // Proactive Name Sync:
+                    // If backend name is a fallback (email-like) but Firebase has a real name, sync it.
+                    if (user?.displayName &&
+                        (profile.displayName.includes('@') || profile.displayName === user.email?.split('@')[0]) &&
+                        profile.displayName !== user.displayName) {
+                        console.log('Syncing Firebase displayName to backend profile...');
+                        apiService.updateUserProfile({ displayName: user.displayName }).catch(console.error);
+                        setUserName(user.displayName);
+                    }
+                } else if (user?.displayName) {
+                    // Fallback to Firebase displayName if backend has none
+                    setUserName(user.displayName);
+                    apiService.updateUserProfile({ displayName: user.displayName }).catch(console.error);
                 }
             }
         } catch (error) {
@@ -46,7 +60,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     useEffect(() => {
+        // Fail-safe: If authentication doesn't resolve within 10 seconds, force loading to false.
+        // This prevents the app from hanging forever on the loading screen if Firebase config is missing.
+        const timer = setTimeout(() => {
+            if (loading) {
+                console.warn('Auth initialization timed out. Forcing loading state to false.');
+                setLoading(false);
+            }
+        }, 10000);
+
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            clearTimeout(timer);
             setUser(user);
             if (user) {
                 setLoading(true);
@@ -57,7 +81,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setLoading(false);
         });
 
-        return unsubscribe;
+        return () => {
+            unsubscribe();
+            clearTimeout(timer);
+        };
     }, []);
 
     const signOut = async () => {

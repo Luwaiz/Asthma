@@ -52,20 +52,17 @@ const Register = () => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
       const user = userCredential.user
 
-      // Update profile with full name
+      // Update Firebase Auth profile with full name
       await updateProfile(user, {
         displayName: fullName
       })
 
-      // Save additional profile data to backend
-      try {
-        await apiService.updateUserProfile({
-          displayName: fullName,
-        })
-      } catch (profileError) {
-        console.error('Profile update error:', profileError)
-        // Don't block registration if profile update fails
-      }
+      // Explicitly sync the name to the backend immediately
+      // This prevents the email-prefix fallback in the backend profile
+      await apiService.updateUserProfile({ displayName: fullName })
+
+      // Note: backend profile is already created or updated by the call above.
+      // onboardingCompleted starts as false.
 
       console.log('Registered user:', user.uid)
       router.replace('/intro-survey')

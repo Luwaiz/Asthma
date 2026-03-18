@@ -5,7 +5,6 @@ import DateTimePicker from '@react-native-community/datetimepicker'
 import * as Notifications from 'expo-notifications'
 import { Stack } from "expo-router"
 import React, { useEffect, useState } from "react"
-import { useTranslation } from "react-i18next"
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
 
 interface ReminderItem {
@@ -146,7 +145,7 @@ const Reminder = () => {
         }
     };
 
-    const { t } = useTranslation();
+
 
     const handleAddReminder = async () => {
         if (!title.trim() || !time.trim()) {
@@ -200,8 +199,8 @@ const Reminder = () => {
 
                 if (trigger) {
                     const notificationTitle = newReminder.type === 'medication'
-                        ? t('home.medicationReminderTitle')
-                        : t('home.appointmentReminderTitle');
+                        ? 'Medication Reminder'
+                        : 'Appointment Reminder';
 
                     await Notifications.scheduleNotificationAsync({
                         content: {

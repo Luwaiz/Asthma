@@ -15,13 +15,28 @@ const firebaseConfig = {
   measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase safely
+let app: any;
+let auth: any;
 
-// Initialize Auth with persistence for React Native
-const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(ReactNativeAsyncStorage)
-});
+if (!firebaseConfig.apiKey) {
+  console.warn("🔥🔥🔥 FIREBASE ERROR: EXPO_PUBLIC_FIREBASE_API_KEY is missing! 🔥🔥🔥");
+  console.warn("Ensure you have added your environment variables to EAS Secrets or .env file.");
+  // Provide dummy objects to prevent immediate crashes in components
+  app = {} as any;
+  auth = {
+    onAuthStateChanged: () => () => {},
+    currentUser: null,
+  } as any;
+} else {
+  // Initialize Firebase
+  app = initializeApp(firebaseConfig);
+
+  // Initialize Auth with persistence for React Native
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(ReactNativeAsyncStorage)
+  });
+}
 
 // Initialize Analytics only if supported (prevents crash on native)
 let analytics: any;
