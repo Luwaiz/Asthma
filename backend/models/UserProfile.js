@@ -20,17 +20,15 @@ const UserProfileSchema = new mongoose.Schema({
         default: []
     },
     yearsWithAsthma: {
-        type: String, // Storing as string to allow ranges like "10+" 
-        default: ''
+        type: Number,
+        default: 0
     },
     medicalConditions: {
         type: [String],
         default: []
     },
-    yearOfBirth: {
-        type: Number,
-        min: 1900,
-        max: new Date().getFullYear()
+    dateOfBirth: {
+        type: Date,
     },
     gender: {
         type: String,

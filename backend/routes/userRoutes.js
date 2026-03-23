@@ -5,26 +5,9 @@ const DailyLog = require('../models/DailyLog');
 const Medication = require('../models/Medication');
 const Reminder = require('../models/Reminder');
 const authMiddleware = require('../middleware/authMiddleware');
+const { isSameDay, isYesterday } = require('../utils/dateUtils');
 
-// Helper to check if two dates are the same day (UTC)
-const isSameDay = (d1, d2) => {
-    if (!d1 || !d2) return false;
-    const date1 = new Date(d1);
-    const date2 = new Date(d2);
-    return date1.getUTCFullYear() === date2.getUTCFullYear() &&
-        date1.getUTCMonth() === date2.getUTCMonth() &&
-        date1.getUTCDate() === date2.getUTCDate();
-};
-
-// Helper to check if d1 is yesterday relative to d2 (UTC)
-const isYesterday = (d1, d2) => {
-    if (!d1 || !d2) return false;
-    const date1 = new Date(d1);
-    const date2 = new Date(d2);
-    const yesterday = new Date(date2);
-    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-    return isSameDay(date1, yesterday);
-};
+// Date helpers moved to utils/dateUtils.js
 
 // @route   GET /api/users/profile
 // @desc    Get user profile
@@ -43,23 +26,11 @@ router.get('/profile', authMiddleware, async (req, res) => {
             });
             await profile.save();
         } else {
-            // Update streak logic
+            // Only update lastVisitDate for visit tracking, DO NOT update streak here
             const today = new Date();
-            const lastVisit = profile.lastVisitDate;
-
-            if (!lastVisit) {
-                profile.streakCount = 1;
+            if (!profile.lastVisitDate || !isSameDay(profile.lastVisitDate, today)) {
                 profile.lastVisitDate = today;
                 await profile.save();
-            } else if (!isSameDay(lastVisit, today)) {
-                if (isYesterday(lastVisit, today)) {
-                    profile.streakCount += 1;
-                } else {
-                    profile.streakCount = 1;
-                }
-                profile.lastVisitDate = today;
-                await profile.save();
-                console.log(`Streak updated for user ${req.user.uid}: ${profile.streakCount}`);
             }
         }
 
@@ -73,7 +44,7 @@ router.get('/profile', authMiddleware, async (req, res) => {
 // @route   PUT /api/users/profile
 // @desc    Update user profile
 router.put('/profile', authMiddleware, async (req, res) => {
-    const { displayName, asthmaLevel, emergencyContact, triggers, yearsWithAsthma, medicalConditions, yearOfBirth, gender, pushToken, onboardingCompleted } = req.body;
+    const { displayName, asthmaLevel, emergencyContact, triggers, yearsWithAsthma, medicalConditions, dateOfBirth, gender, pushToken, onboardingCompleted } = req.body;
     const userId = req.user.uid;
 
     console.log(`PUT /api/users/profile received for user ${userId}:`, { displayName, asthmaLevel, pushToken, onboardingCompleted });
@@ -91,7 +62,7 @@ router.put('/profile', authMiddleware, async (req, res) => {
                 triggers,
                 yearsWithAsthma,
                 medicalConditions,
-                yearOfBirth,
+                dateOfBirth,
                 gender,
                 onboardingCompleted,
             });
@@ -103,7 +74,7 @@ router.put('/profile', authMiddleware, async (req, res) => {
             if (triggers !== undefined) profile.triggers = triggers;
             if (yearsWithAsthma !== undefined) profile.yearsWithAsthma = yearsWithAsthma;
             if (medicalConditions !== undefined) profile.medicalConditions = medicalConditions;
-            if (yearOfBirth !== undefined) profile.yearOfBirth = yearOfBirth;
+            if (dateOfBirth !== undefined) profile.dateOfBirth = dateOfBirth;
             if (gender !== undefined) profile.gender = gender;
             if (pushToken !== undefined) profile.pushToken = pushToken;
             if (onboardingCompleted !== undefined) profile.onboardingCompleted = onboardingCompleted;

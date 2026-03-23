@@ -46,7 +46,6 @@ const Login = () => {
       // Since AuthContext already manages this, let's use router.replace('/') 
       // which will trigger app/index.tsx logic
       router.replace('/')
-    } catch (error: any) {
       console.error('Login error:', error)
       let errorMessage = 'An error occurred during sign in'
 
@@ -54,6 +53,10 @@ const Login = () => {
         errorMessage = 'Invalid email or password'
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = 'Invalid email format'
+      } else if (error.code) {
+        errorMessage = `Sign in failed: ${error.code}\n${error.message}`
+      } else {
+        errorMessage = `Sign in failed: ${error.toString()}`
       }
 
       alert(errorMessage)

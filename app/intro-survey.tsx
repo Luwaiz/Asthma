@@ -18,6 +18,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const TRIGGERS = [
     "Dust", "Pollen", "Pets", "Smoke", "Cold Air", "Exercise", "Stress", "Perfume", "Mold"
@@ -42,7 +43,8 @@ const GENDER_OPTIONS = ['Male', 'Female', 'Other', 'Prefer not to say'];
 export default function IntroSurveyScreen() {
     const [triggers, setTriggers] = useState<string[]>([]);
     const [medicalConditions, setMedicalConditions] = useState<string[]>([]);
-    const [yearOfBirth, setYearOfBirth] = useState('');
+    const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
+    const [showDatePicker, setShowDatePicker] = useState(false);
     const [gender, setGender] = useState('');
     const [yearsWithAsthma, setYearsWithAsthma] = useState('');
     const [emergencyName, setEmergencyName] = useState('');
@@ -103,8 +105,8 @@ export default function IntroSurveyScreen() {
     };
 
     const handleSubmit = async () => {
-        if (!yearsWithAsthma || !emergencyName || !emergencyPhone) {
-            Alert.alert('Missing Information', 'Please fill in all basic fields to continue.');
+        if (!yearsWithAsthma || !emergencyName || !emergencyPhone || !dateOfBirth) {
+            Alert.alert('Missing Information', 'Please fill in all basic fields, including Date of Birth, to continue.');
             return;
         }
 
@@ -116,7 +118,7 @@ export default function IntroSurveyScreen() {
                 triggers,
                 medicalConditions,
                 yearsWithAsthma,
-                yearOfBirth: yearOfBirth ? parseInt(yearOfBirth) : undefined,
+                dateOfBirth: dateOfBirth.toISOString(),
                 gender: gender || undefined,
                 emergencyContact: {
                     name: emergencyName,
@@ -204,16 +206,33 @@ export default function IntroSurveyScreen() {
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Basic Information</Text>
                     <View style={styles.inputGroup}>
-                        <Text style={styles.inputLabel}>Year of Birth</Text>
-                        <TextInput
-                            style={styles.textInput}
-                            placeholder="e.g. 1990"
-                            placeholderTextColor="#9ca3af"
-                            value={yearOfBirth}
-                            onChangeText={setYearOfBirth}
-                            keyboardType="numeric"
-                            maxLength={4}
-                        />
+                        <Text style={styles.inputLabel}>Date of Birth</Text>
+                        <TouchableOpacity 
+                            style={styles.inputWrapper} 
+                            onPress={() => setShowDatePicker(true)}
+                        >
+                            <IconSymbol name="calendar" size={20} color="#9ca3af" />
+                            <Text style={[
+                                styles.textInput, 
+                                !dateOfBirth && { color: '#9ca3af' }
+                            ]}>
+                                {dateOfBirth ? dateOfBirth.toLocaleDateString() : 'Select your date of birth'}
+                            </Text>
+                        </TouchableOpacity>
+                        {showDatePicker && (
+                            <DateTimePicker
+                                value={dateOfBirth || new Date(2000, 0, 1)}
+                                mode="date"
+                                display="default"
+                                maximumDate={new Date()}
+                                onChange={(event, selectedDate) => {
+                                    setShowDatePicker(false);
+                                    if (selectedDate) {
+                                        setDateOfBirth(selectedDate);
+                                    }
+                                }}
+                            />
+                        )}
                     </View>
                     <View style={styles.inputGroup}>
                         <Text style={styles.inputLabel}>Gender</Text>
@@ -245,10 +264,11 @@ export default function IntroSurveyScreen() {
                     <View style={styles.inputWrapper}>
                         <TextInput
                             style={styles.textInput}
-                            placeholder="e.g. 5 years, since childhood"
+                            placeholder="e.g. 5 (years)"
                             placeholderTextColor="#9ca3af"
                             value={yearsWithAsthma}
                             onChangeText={setYearsWithAsthma}
+                            keyboardType="numeric"
                         />
                     </View>
                 </View>

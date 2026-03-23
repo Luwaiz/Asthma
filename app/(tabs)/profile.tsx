@@ -5,8 +5,9 @@ import { apiService } from '@/services/api';
 import { router } from 'expo-router';
 import { updateProfile } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Modal, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View, Platform } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { HospitalList } from '@/components/HospitalList';
-import { ActivityIndicator, Alert, Modal, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 
 
@@ -386,7 +387,9 @@ const Profile = () => {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [editedAsthmaLevel, setEditedAsthmaLevel] = useState('Mild');
-  const [editedYearOfBirth, setEditedYearOfBirth] = useState('');
+  const [editedYearsWithAsthma, setEditedYearsWithAsthma] = useState('');
+  const [editedDateOfBirth, setEditedDateOfBirth] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [editedGender, setEditedGender] = useState('');
 
   const displayName = userProfile?.displayName || user?.displayName || user?.email?.split('@')[0] || 'User';
@@ -395,7 +398,22 @@ const Profile = () => {
     ? new Date(user.metadata.creationTime).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     : 'Unknown';
 
-  const age = userProfile?.yearOfBirth ? new Date().getFullYear() - userProfile.yearOfBirth : null;
+  const calculateAge = (dob: string | Date | null) => {
+    if (!dob) return null;
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const age = calculateAge(userProfile?.dateOfBirth);
+  const dobString = userProfile?.dateOfBirth 
+    ? new Date(userProfile.dateOfBirth).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null;
   const gender = userProfile?.gender ? userProfile.gender.charAt(0).toUpperCase() + userProfile.gender.slice(1) : null;
 
   useEffect(() => {
@@ -418,7 +436,8 @@ const Profile = () => {
   const handleOpenEditModal = () => {
     setEditedName(displayName);
     setEditedAsthmaLevel(asthmaLevel);
-    setEditedYearOfBirth(userProfile?.yearOfBirth?.toString() || '');
+    setEditedYearsWithAsthma(userProfile?.yearsWithAsthma?.toString() || '');
+    setEditedDateOfBirth(userProfile?.dateOfBirth ? new Date(userProfile.dateOfBirth) : null);
     setEditedGender(userProfile?.gender || '');
     setEditModalVisible(true);
   };
@@ -432,7 +451,8 @@ const Profile = () => {
       const updated = await apiService.updateUserProfile({
         displayName: editedName,
         asthmaLevel: editedAsthmaLevel,
-        yearOfBirth: editedYearOfBirth ? parseInt(editedYearOfBirth) : undefined,
+        yearsWithAsthma: editedYearsWithAsthma ? parseInt(editedYearsWithAsthma) : 0,
+        dateOfBirth: editedDateOfBirth?.toISOString(),
         gender: editedGender || undefined,
       });
       setUserProfile(updated);
@@ -480,9 +500,12 @@ const Profile = () => {
                 {gender !== null && <Text style={styles.demographicText}>{gender}</Text>}
               </View>
             )}
-            {userProfile?.yearsWithAsthma && (
-              <Text style={styles.profileMemberSince}>Diagnosed {userProfile.yearsWithAsthma} ago</Text>
+            {dobString && (
+              <Text style={styles.profileMemberSince}>Born {dobString}</Text>
             )}
+            {userProfile?.yearsWithAsthma ? (
+              <Text style={styles.profileMemberSince}>Diagnosed {userProfile.yearsWithAsthma} years ago</Text>
+            ) : null}
             <Text style={styles.profileMemberSince}>Member since {memberSince}</Text>
           </View>
         </View>
@@ -506,11 +529,21 @@ const Profile = () => {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Edit Profile</Text>
 
+            <Text style={styles.inputLabel}>Display Name</Text>
             <TextInput
               style={styles.input}
               placeholder="Display Name"
               value={editedName}
               onChangeText={setEditedName}
+            />
+
+            <Text style={styles.inputLabel}>Years with Asthma</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., 5"
+              value={editedYearsWithAsthma}
+              onChangeText={setEditedYearsWithAsthma}
+              keyboardType="numeric"
             />
 
             <Text style={styles.inputLabel}>Asthma Level</Text>
@@ -536,15 +569,29 @@ const Profile = () => {
               ))}
             </View>
 
-            <Text style={styles.inputLabel}>Year of Birth</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g., 1995"
-              value={editedYearOfBirth}
-              onChangeText={setEditedYearOfBirth}
-              keyboardType="numeric"
-              maxLength={4}
-            />
+            <Text style={styles.inputLabel}>Date of Birth</Text>
+            <TouchableOpacity 
+              style={styles.dateInput} 
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text style={styles.dateInputText}>
+                {editedDateOfBirth ? editedDateOfBirth.toLocaleDateString() : 'Select DOB'}
+              </Text>
+              <IconSymbol name="calendar" size={18} color="#087179" />
+            </TouchableOpacity>
+
+            {showDatePicker && (
+              <DateTimePicker
+                value={editedDateOfBirth || new Date(2000, 0, 1)}
+                mode="date"
+                display="default"
+                maximumDate={new Date()}
+                onChange={(event, selectedDate) => {
+                  setShowDatePicker(Platform.OS === 'ios');
+                  if (selectedDate) setEditedDateOfBirth(selectedDate);
+                }}
+              />
+            )}
 
             <Text style={styles.inputLabel}>Gender</Text>
             <View style={styles.genderEditContainer}>
@@ -942,6 +989,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#374151',
     marginBottom: 8,
+  },
+  dateInput: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    paddingHorizontal: 16,
+    height: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  dateInputText: {
+    fontSize: 16,
+    color: '#111',
   },
   asthmaLevelSelector: {
     flexDirection: 'row',

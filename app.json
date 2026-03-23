@@ -65,11 +65,13 @@
       "reactCompiler": false
     },
     "extra": {
-      "router": {},
+      "router": {
+        "origin": false
+      },
       "eas": {
-        "projectId": "4a6e4d4d-d358-4830-b6af-c7b478979c7d"
+        "projectId": "153bd962-6f6a-450f-8a63-7a77cff08bbc"
       }
     },
-    "owner": "uwaiz"
+    "owner": "eluwaiz"
   }
 }

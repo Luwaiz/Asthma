@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const DailyLog = require('../models/DailyLog');
+const UserProfile = require('../models/UserProfile');
 const authMiddleware = require('../middleware/authMiddleware');
+const { isSameDay, isYesterday } = require('../utils/dateUtils');
 
 // @route   POST /api/logs
 // @desc    Create or update a daily log
@@ -13,13 +15,21 @@ router.post('/', authMiddleware, async (req, res) => {
     console.log(`POST /api/logs received for user ${userId} and date ${date}`);
 
     try {
-        // Normalize date to start of day for uniqueness check
         const logDate = new Date(date);
         logDate.setUTCHours(0, 0, 0, 0);
+
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0);
 
         let log = await DailyLog.findOne({ userId, date: logDate });
 
         if (log) {
+            // Prevent updates for past logs
+            if (logDate < today) {
+                console.log(`Update rejected for past date ${logDate.toISOString()}`);
+                return res.status(403).json({ error: 'Past logs cannot be edited.' });
+            }
+
             log.symptoms = symptoms;
             log.peakFlow = peakFlow;
             log.notes = notes;
@@ -33,6 +43,35 @@ router.post('/', authMiddleware, async (req, res) => {
                 notes
             });
             await log.save();
+
+            // --- STREAK LOGIC START ---
+            // Only update streak if it's a new log for "today"
+            const today = new Date();
+            today.setUTCHours(0, 0, 0, 0);
+
+            if (isSameDay(logDate, today)) {
+                const profile = await UserProfile.findOne({ userId });
+                if (profile) {
+                    const lastLogDate = profile.lastVisitDate;
+
+                    if (!lastLogDate) {
+                        // First log ever
+                        profile.streakCount = 1;
+                    } else if (isYesterday(lastLogDate, today)) {
+                        // Consecutive day
+                        profile.streakCount += 1;
+                    } else if (!isSameDay(lastLogDate, today)) {
+                        // Streak broken (more than 1 day gap)
+                        profile.streakCount = 1;
+                    }
+                    // If isSameDay(lastLogDate, today), we already updated the streak today
+
+                    profile.lastVisitDate = today;
+                    await profile.save();
+                    console.log(`Streak updated for user ${userId} via log creation: ${profile.streakCount}`);
+                }
+            }
+            // --- STREAK LOGIC END ---
         }
 
         res.json(log);

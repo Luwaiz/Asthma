@@ -23,10 +23,16 @@ if (!firebaseConfig.apiKey) {
   console.warn("🔥🔥🔥 FIREBASE ERROR: EXPO_PUBLIC_FIREBASE_API_KEY is missing! 🔥🔥🔥");
   console.warn("Ensure you have added your environment variables to EAS Secrets or .env file.");
   // Provide dummy objects to prevent immediate crashes in components
-  app = {} as any;
+  app = { 
+    name: '[DEFAULT-DUMMY]',
+    options: {},
+    automaticDataCollectionEnabled: false
+  } as any;
   auth = {
     onAuthStateChanged: () => () => {},
     currentUser: null,
+    // Add dummy sign-in method that provides a clear error
+    config: { apiKey: null }
   } as any;
 } else {
   // Initialize Firebase

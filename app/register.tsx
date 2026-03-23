@@ -66,7 +66,6 @@ const Register = () => {
 
       console.log('Registered user:', user.uid)
       router.replace('/intro-survey')
-    } catch (error: any) {
       console.error('Registration error:', error)
       let errorMessage = 'An error occurred during registration'
 
@@ -76,6 +75,10 @@ const Register = () => {
         errorMessage = 'Password is too weak'
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = 'Invalid email format'
+      } else if (error.code) {
+        errorMessage = `Registration failed: ${error.code}\n${error.message}`
+      } else {
+        errorMessage = `Registration failed: ${error.toString()}`
       }
 
       alert(errorMessage)

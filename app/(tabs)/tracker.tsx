@@ -199,13 +199,15 @@ function SymptomCard({
   onUpdate,
   onRemove,
   showRemove,
-  onShowInfo
+  onShowInfo,
+  disabled
 }: {
   symptom: Symptom;
   onUpdate: (data: Partial<Symptom>) => void;
   onRemove: () => void;
   showRemove: boolean;
   onShowInfo: () => void;
+  disabled?: boolean;
 }) {
   return (
     <View style={styles.card}>
@@ -216,7 +218,7 @@ function SymptomCard({
             <IconSymbol name="info.circle.fill" size={18} color="#9ca3af" />
           </TouchableOpacity>
         </View>
-        {showRemove && (
+        {(showRemove && !disabled) && (
           <TouchableOpacity onPress={onRemove} style={styles.removeBtn}>
             <IconSymbol name="minus.circle.fill" size={20} color="#ef4444" />
           </TouchableOpacity>
@@ -228,9 +230,10 @@ function SymptomCard({
         <TextInput
           placeholder="e.g. Coughing, Wheezing"
           placeholderTextColor={"lightgray"}
-          style={styles.textInput}
+          style={[styles.textInput, disabled && { backgroundColor: '#f3f4f6', color: '#6b7280' }]}
           value={symptom.name}
           onChangeText={(val) => onUpdate({ name: val })}
+          editable={!disabled}
         />
       </View>
 
@@ -240,10 +243,11 @@ function SymptomCard({
           placeholder="Describe how it feels..."
           placeholderTextColor={"lightgray"}
 
-          style={[styles.textInput, { height: 60 }]}
+          style={[styles.textInput, { height: 60 }, disabled && { backgroundColor: '#f3f4f6', color: '#6b7280' }]}
           multiline
           value={symptom.description}
           onChangeText={(val) => onUpdate({ description: val })}
+          editable={!disabled}
         />
       </View>
 
@@ -253,10 +257,12 @@ function SymptomCard({
           {SEVERITY_LEVELS.map((level, idx) => (
             <TouchableOpacity
               key={idx}
-              onPress={() => onUpdate({ severity: idx })}
+              onPress={() => !disabled && onUpdate({ severity: idx })}
+              disabled={disabled}
               style={[
                 styles.chip,
-                symptom.severity === idx && { backgroundColor: level.color, borderColor: level.color }
+                symptom.severity === idx && { backgroundColor: level.color, borderColor: level.color },
+                (disabled && symptom.severity !== idx) && { opacity: 0.5 }
               ]}
             >
               <Text style={[styles.chipText, symptom.severity === idx && styles.chipTextSelected]}>
@@ -286,6 +292,19 @@ const tracker = () => {
   const [infoModal, setInfoModal] = useState({ visible: false, title: '', content: '' });
   const isInitialMount = useRef(true);
   const hasCheckedLogsRef = useRef(false);
+
+  const todayStr = new Date().toDateString();
+  const isPastDate = (() => {
+    try {
+      if (!selectedDate || !(selectedDate instanceof Date) || isNaN(selectedDate.getTime())) {
+        return false;
+      }
+      return selectedDate.toDateString() !== todayStr && selectedDate < new Date();
+    } catch (e) {
+      console.error("Error calculating isPastDate:", e);
+      return false;
+    }
+  })();
 
   useEffect(() => {
     loadAllLogs();
@@ -347,11 +366,19 @@ const tracker = () => {
 
   useEffect(() => {
     // Load log for selected date
-    const logForDate = allLogs.find(l => new Date(l.date).toDateString() === selectedDate.toDateString());
+    if (!selectedDate || !(selectedDate instanceof Date) || isNaN(selectedDate.getTime())) return;
+
+    const logForDate = allLogs.find(l => {
+      try {
+        return l && l.date && new Date(l.date).toDateString() === selectedDate.toDateString();
+      } catch (e) {
+        return false;
+      }
+    });
     if (logForDate) {
-      setSymptoms(logForDate.symptoms);
-      setPeakFlow(logForDate.peakFlow);
-      setNotes(logForDate.notes);
+      setSymptoms(logForDate.symptoms || []);
+      setPeakFlow(logForDate.peakFlow || '');
+      setNotes(logForDate.notes || '');
     } else {
       // Reset form for fresh date
       setSymptoms([{ id: Date.now().toString(), name: '', description: '', severity: 0 }]);
@@ -610,11 +637,20 @@ const tracker = () => {
 
           <View style={styles.logSection}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Daily Log</Text>
-              <TouchableOpacity onPress={addSymptom} style={styles.addSymptomBtn}>
-                <IconSymbol name="plus.circle.fill" size={20} color="#087179" />
-                <Text style={styles.addSymptomText}>Add Symptom</Text>
-              </TouchableOpacity>
+              <View>
+                <Text style={styles.sectionTitle}>Daily Log</Text>
+                {isPastDate && (
+                  <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '700', marginTop: 2 }}>
+                    READ ONLY - PAST LOG
+                  </Text>
+                )}
+              </View>
+              {!isPastDate && (
+                <TouchableOpacity onPress={addSymptom} style={styles.addSymptomBtn}>
+                  <IconSymbol name="plus.circle.fill" size={20} color="#087179" />
+                  <Text style={styles.addSymptomText}>Add Symptom</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {symptoms.map((s, index) => (
@@ -625,6 +661,7 @@ const tracker = () => {
                 onUpdate={(data) => updateSymptom(s.id, data)}
                 onRemove={() => removeSymptom(s.id)}
                 onShowInfo={() => showInfo('symptoms')}
+                disabled={isPastDate}
               />
             ))}
 
@@ -637,11 +674,12 @@ const tracker = () => {
               </View>
               <View style={styles.inputWrapper}>
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, isPastDate && { backgroundColor: '#f3f4f6', color: '#6b7280' }]}
                   placeholder="0"
                   keyboardType="numeric"
                   value={peakFlow}
                   onChangeText={setPeakFlow}
+                  editable={!isPastDate}
                 />
                 <Text style={styles.unitText}>L/min</Text>
               </View>
@@ -655,12 +693,13 @@ const tracker = () => {
                 </TouchableOpacity>
               </View>
               <TextInput
-                style={styles.textArea}
-                placeholder="How are you feeling overall today?"
+                style={[styles.textArea, isPastDate && { backgroundColor: '#f3f4f6', color: '#6b7280' }]}
+                placeholder={isPastDate ? "No notes for this date." : "How are you feeling overall today?"}
                 multiline
                 numberOfLines={4}
                 value={notes}
                 onChangeText={setNotes}
+                editable={!isPastDate}
               />
             </View>
 
@@ -675,17 +714,19 @@ const tracker = () => {
           onClose={() => setInfoModal(prev => ({ ...prev, visible: false }))}
         />
 
-        <Pressable
-          style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
-          onPress={handleSave}
-          disabled={isSaving}
-        >
-          {isSaving ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.saveButtonText}>Save Daily Log</Text>
-          )}
-        </Pressable>
+        {!isPastDate && (
+          <Pressable
+            style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+            onPress={handleSave}
+            disabled={isSaving}
+          >
+            {isSaving ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.saveButtonText}>Save Daily Log</Text>
+            )}
+          </Pressable>
+        )}
       </View>
     </KeyboardAvoidingView>
   )
