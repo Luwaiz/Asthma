@@ -190,7 +190,6 @@ interface Log {
   id: string;
   date: string;
   symptoms: Symptom[];
-  peakFlow: string;
   notes: string;
 }
 
@@ -283,7 +282,6 @@ const tracker = () => {
   const [symptoms, setSymptoms] = useState<Symptom[]>([
     { id: Date.now().toString(), name: '', description: '', severity: 0 }
   ]);
-  const [peakFlow, setPeakFlow] = useState('');
   const [notes, setNotes] = useState('');
   const [allLogs, setAllLogs] = useState<Log[]>([]);
   const [insight, setInsight] = useState<Insight | null>(null);
@@ -377,12 +375,10 @@ const tracker = () => {
     });
     if (logForDate) {
       setSymptoms(logForDate.symptoms || []);
-      setPeakFlow(logForDate.peakFlow || '');
       setNotes(logForDate.notes || '');
     } else {
       // Reset form for fresh date
       setSymptoms([{ id: Date.now().toString(), name: '', description: '', severity: 0 }]);
-      setPeakFlow('');
       setNotes('');
     }
   }, [selectedDate, allLogs]);
@@ -524,13 +520,12 @@ const tracker = () => {
       id: logId,
       date: selectedDate.toISOString(),
       symptoms,
-      peakFlow,
       notes
     };
 
     try {
       // 1. Save to backend
-      await apiService.saveLog(newLog);
+      const response = await apiService.saveLog(newLog);
 
       // 2. Save locally as fallback/cache
       const updatedLogs = allLogs.filter(l => new Date(l.date).toDateString() !== selectedDate.toDateString());
@@ -544,9 +539,15 @@ const tracker = () => {
       await AsyncStorage.setItem('REMINDERS_STALE', 'true');
       await AsyncStorage.setItem('AI_INSIGHTS_STALE', 'true');
 
+      // Streak celebration logic
+      if (response && response.streakUpdated) {
+        await AsyncStorage.setItem('SHOW_STREAK_MODAL', 'true');
+        // Refresh profile to get updated streak count
+        // we'll use a local flag or just rely on index.tsx re-fetching
+      }
+
       // 3. Reset form
       setSymptoms([{ id: Date.now().toString(), name: '', description: '', severity: 0 }]);
-      setPeakFlow('');
       setNotes('');
 
       alert('Log saved successfully!');
@@ -581,13 +582,6 @@ const tracker = () => {
           visible: true,
           title: 'Symptoms & Severity',
           content: 'Log your symptoms and rate their severity:\n\n• Mild: Only slightly bothersome.\n• Moderate: Harder to perform regular tasks.\n• Severe: Cannot carry out normal daily activities.'
-        });
-        break;
-      case 'pef':
-        setInfoModal({
-          visible: true,
-          title: 'Peak Flow (PEF)',
-          content: 'Peak Expiratory Flow (PEF) measures how fast you can breathe out. Tracking this daily helps monitor your lung health and detect potential flare-ups before they get serious.'
         });
         break;
       case 'notes':
@@ -665,25 +659,6 @@ const tracker = () => {
               />
             ))}
 
-            <View style={styles.inputGroup}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <Text style={styles.inputLabelNoMargin}>Peak Expiratory Flow (PEF)</Text>
-                <TouchableOpacity onPress={() => showInfo('pef')}>
-                  <IconSymbol name="info.circle.fill" size={18} color="#9ca3af" />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={[styles.textInput, isPastDate && { backgroundColor: '#f3f4f6', color: '#6b7280' }]}
-                  placeholder="0"
-                  keyboardType="numeric"
-                  value={peakFlow}
-                  onChangeText={setPeakFlow}
-                  editable={!isPastDate}
-                />
-                <Text style={styles.unitText}>L/min</Text>
-              </View>
-            </View>
 
             <View style={[styles.inputGroup, { marginTop: 20 }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>

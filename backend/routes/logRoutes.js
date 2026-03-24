@@ -45,6 +45,7 @@ router.post('/', authMiddleware, async (req, res) => {
             await log.save();
 
             // --- STREAK LOGIC START ---
+            let streakUpdated = false;
             // Only update streak if it's a new log for "today"
             const today = new Date();
             today.setUTCHours(0, 0, 0, 0);
@@ -57,21 +58,28 @@ router.post('/', authMiddleware, async (req, res) => {
                     if (!lastLogDate) {
                         // First log ever
                         profile.streakCount = 1;
+                        streakUpdated = true;
                     } else if (isYesterday(lastLogDate, today)) {
                         // Consecutive day
                         profile.streakCount += 1;
+                        streakUpdated = true;
                     } else if (!isSameDay(lastLogDate, today)) {
                         // Streak broken (more than 1 day gap)
                         profile.streakCount = 1;
+                        streakUpdated = true;
                     }
-                    // If isSameDay(lastLogDate, today), we already updated the streak today
+                    // If isSameDay(lastLogDate, today), we already updated the streak today (streakUpdated stays false)
 
-                    profile.lastVisitDate = today;
-                    await profile.save();
-                    console.log(`Streak updated for user ${userId} via log creation: ${profile.streakCount}`);
+                    if (streakUpdated) {
+                        profile.lastVisitDate = today;
+                        await profile.save();
+                        console.log(`Streak updated for user ${userId} via log creation: ${profile.streakCount}`);
+                    }
                 }
             }
             // --- STREAK LOGIC END ---
+
+            return res.json({ ...log.toObject(), streakUpdated });
         }
 
         res.json(log);

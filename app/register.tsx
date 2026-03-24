@@ -39,7 +39,12 @@ const Register = () => {
     }
 
     if (password !== confirmPassword) {
-      alert('Passwords do not match')
+      alert('PINs do not match')
+      return
+    }
+
+    if (password.length !== 6) {
+      alert('PIN must be exactly 6 digits')
       return
     }
     if (!agreeToTerms) {
@@ -66,13 +71,14 @@ const Register = () => {
 
       console.log('Registered user:', user.uid)
       router.replace('/intro-survey')
+    } catch (error: any) {
       console.error('Registration error:', error)
       let errorMessage = 'An error occurred during registration'
 
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = 'This email is already in use'
       } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'Password is too weak'
+        errorMessage = 'PIN is too weak'
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = 'Invalid email format'
       } else if (error.code) {
@@ -151,20 +157,21 @@ const Register = () => {
             </View>
           </View>
 
-          {/* Password Input */}
+          {/* PIN Input */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Password</Text>
+            <Text style={styles.inputLabel}>6-Digit PIN</Text>
             <View style={styles.inputWrapper}>
-              <IconSymbol name="lock.fill" size={20} color="#9ca3af" />
+              <IconSymbol name="number" size={20} color="#9ca3af" />
               <TextInput
                 style={styles.textInput}
-                placeholder="Create a password"
+                placeholder="Create a 6-digit PIN"
                 placeholderTextColor="#9ca3af"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(val) => setPassword(val.replace(/[^0-9]/g, ''))}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
-                autoComplete="password-new"
+                keyboardType="numeric"
+                maxLength={6}
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 <IconSymbol
@@ -176,20 +183,21 @@ const Register = () => {
             </View>
           </View>
 
-          {/* Confirm Password Input */}
+          {/* Confirm PIN Input */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Confirm Password</Text>
+            <Text style={styles.inputLabel}>Confirm PIN</Text>
             <View style={styles.inputWrapper}>
-              <IconSymbol name="lock.fill" size={20} color="#9ca3af" />
+              <IconSymbol name="number" size={20} color="#9ca3af" />
               <TextInput
                 style={styles.textInput}
-                placeholder="Confirm your password"
+                placeholder="Confirm your 6-digit PIN"
                 placeholderTextColor="#9ca3af"
                 value={confirmPassword}
-                onChangeText={setConfirmPassword}
+                onChangeText={(val) => setConfirmPassword(val.replace(/[^0-9]/g, ''))}
                 secureTextEntry={!showConfirmPassword}
                 autoCapitalize="none"
-                autoComplete="password-new"
+                keyboardType="numeric"
+                maxLength={6}
               />
               <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
                 <IconSymbol
@@ -201,21 +209,6 @@ const Register = () => {
             </View>
           </View>
 
-          {/* Password Strength Indicator */}
-          <View style={styles.passwordStrengthContainer}>
-            <View style={styles.strengthBars}>
-              <View style={[styles.strengthBar, password.length >= 6 && styles.strengthBarActive]} />
-              <View style={[styles.strengthBar, password.length >= 8 && styles.strengthBarActive]} />
-              <View style={[styles.strengthBar, password.length >= 10 && /[A-Z]/.test(password) && styles.strengthBarActive]} />
-              <View style={[styles.strengthBar, password.length >= 10 && /[A-Z]/.test(password) && /[0-9]/.test(password) && styles.strengthBarActive]} />
-            </View>
-            <Text style={styles.strengthText}>
-              {password.length === 0 ? '' :
-                password.length < 6 ? 'Weak' :
-                  password.length < 8 ? 'Fair' :
-                    password.length >= 10 && /[A-Z]/.test(password) && /[0-9]/.test(password) ? 'Strong' : 'Good'}
-            </Text>
-          </View>
 
           {/* Terms and Conditions */}
           <TouchableOpacity

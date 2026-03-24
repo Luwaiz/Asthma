@@ -73,11 +73,11 @@ const ForgotPassword = () => {
                             <IconSymbol name="lock.shield.fill" size={40} color="#087179" />
                         </View>
                     </View>
-                    <Text style={styles.titleText}>Reset Password</Text>
+                    <Text style={styles.titleText}>Reset PIN</Text>
                     <Text style={styles.subtitleText}>
                         {isSubmitted
-                            ? "We've sent a password reset link to your email address."
-                            : "Enter your email address and we'll send you a link to reset your password."}
+                            ? "We've sent a PIN reset link to your email address."
+                            : "Enter your email address and we'll send you a link to reset your PIN."}
                     </Text>
                 </View>
 

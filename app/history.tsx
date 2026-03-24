@@ -41,9 +41,9 @@ interface Symptom {
 
 interface Log {
     id: string;
+    _id?: string;
     date: string; // ISO String
     symptoms: Symptom[];
-    peakFlow: string;
     notes: string;
 }
 
@@ -111,9 +111,6 @@ export default function HistoryScreen() {
 
                 <View style={styles.logContent}>
                     <View style={styles.logHeader}>
-                        <Text style={styles.peakFlowText}>
-                            PEF: <Text style={styles.peakFlowValue}>{item.peakFlow || 'N/A'} L/min</Text>
-                        </Text>
                     </View>
 
                     {item.symptoms?.map((s, index) => (

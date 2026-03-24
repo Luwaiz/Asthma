@@ -46,11 +46,12 @@ const Login = () => {
       // Since AuthContext already manages this, let's use router.replace('/') 
       // which will trigger app/index.tsx logic
       router.replace('/')
+    } catch (error: any) {
       console.error('Login error:', error)
       let errorMessage = 'An error occurred during sign in'
 
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-        errorMessage = 'Invalid email or password'
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        errorMessage = 'Invalid email or PIN'
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = 'Invalid email format'
       } else if (error.code) {
@@ -111,20 +112,21 @@ const Login = () => {
             </View>
           </View>
 
-          {/* Password Input */}
+          {/* PIN Input */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Password</Text>
+            <Text style={styles.inputLabel}>6-Digit PIN</Text>
             <View style={styles.inputWrapper}>
-              <IconSymbol name="lock.fill" size={20} color="#9ca3af" />
+              <IconSymbol name="number" size={20} color="#9ca3af" />
               <TextInput
                 style={styles.textInput}
-                placeholder="Enter your password"
+                placeholder="Enter 6-digit PIN"
                 placeholderTextColor="#9ca3af"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(val) => setPassword(val.replace(/[^0-9]/g, ''))}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
-                autoComplete="password"
+                keyboardType="numeric"
+                maxLength={6}
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 <IconSymbol
@@ -148,7 +150,7 @@ const Login = () => {
               <Text style={styles.rememberMeText}>Remember me</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => router.push('/forgot-password')}>
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+              <Text style={styles.forgotPasswordText}>Forgot PIN?</Text>
             </TouchableOpacity>
           </View>
 

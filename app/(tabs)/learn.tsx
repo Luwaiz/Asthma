@@ -39,11 +39,10 @@ const styles = StyleSheet.create({
     },
 
     card: {
-        width: width * 0.85,
+        width: '100%',
         borderRadius: 20,
         padding: 16,
-        marginRight: 16,
-        marginBottom: 8,
+        marginBottom: 16,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
@@ -383,6 +382,34 @@ const LEARN_ITEMS: LearnItem[] = [
                 </View>
             </>
         )
+    },
+    {
+        id: 'nighttime',
+        title: "Nighttime Asthma",
+        subtitle: "Nocturnal Asthma",
+        backgroundColor: "#F0F4FF",
+        actionText: "Learn More",
+        videoUrl: "https://youtu.be/mgW8d-xPSZU?si=KQYLuvp5BT9wr6Sc",
+        content: (
+            <Text style={styles.text}>
+                Many people find their asthma symptoms get worse at night. This can be due to lying flat, 
+                cooler air, or increased exposure to dust mites in bedding.
+            </Text>
+        )
+    },
+    {
+        id: 'activity',
+        title: "Asthma & Physical Activity",
+        subtitle: "Staying Active",
+        backgroundColor: "#F7FEE7",
+        actionText: "Learn More",
+        videoUrl: "https://youtu.be/8hgEorF0vyY?si=JF1E6kRlUrIkC_e1",
+        content: (
+            <Text style={styles.text}>
+                Exercise is great for your lungs! Just remember to warm up slowly and keep your 
+                rescue inhaler nearby. If it's cold outside, breathe through a scarf to warm the air.
+            </Text>
+        )
     }
 ];
 
@@ -452,11 +479,8 @@ export default function Learn() {
             {filteredItems.length > 0 ? (
                 <View>
                     <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
+                        showsVerticalScrollIndicator={false}
                         contentContainerStyle={styles.scrollContent}
-                        snapToInterval={width * 0.85 + 16}
-                        decelerationRate="fast"
                     >
                         {filteredItems.map(item => (
                             <Card

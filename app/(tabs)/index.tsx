@@ -94,13 +94,23 @@ function HealthTrend({ logs, loading, onShowInfo }: { logs: Log[], loading: bool
 			const dayLabel = days[d.getDay()];
 
 			const log = logs.find(l => l.date.startsWith(dateStr));
-			const pefValue = log ? parseInt(log.peakFlow) : null;
+			
+			// Calculate max severity for the day (0-3 scale)
+			// 0 = No log or no symptoms
+			// 1 = Mild (index 0)
+			// 2 = Moderate (index 1)
+			// 3 = Severe (index 2)
+			let maxSeverity = 0;
+			if (log && log.symptoms && log.symptoms.length > 0) {
+				const highestSymptomSeverity = Math.max(...log.symptoms.map(s => s.severity));
+				maxSeverity = highestSymptomSeverity + 1;
+			}
 
 			data.push({
-				value: pefValue || 0,
+				value: maxSeverity,
 				label: dayLabel,
-				dataPointText: pefValue ? pefValue.toString() : '',
-				hideDataPoint: !pefValue,
+				dataPointText: maxSeverity > 0 ? maxSeverity.toString() : '',
+				hideDataPoint: maxSeverity === 0,
 			});
 		}
 		return data;
@@ -109,9 +119,8 @@ function HealthTrend({ logs, loading, onShowInfo }: { logs: Log[], loading: bool
 	const chartData = getChartData();
 	const hasData = chartData.some(d => d.value > 0);
 
-	// Calculate max value for headroom
-	const maxPef = Math.max(...chartData.map(d => d.value), 0);
-	const maxValue = maxPef > 0 ? Math.ceil(maxPef * 1.25) : 100; // 25% buffer
+	// Y-axis is fixed at 0-3
+	const maxValue = 3;
 
 	// Reduction: Screen (full) - Page Padding (20*2) - Box Padding (20*2) - Solid Buffer (20)
 	const chartWidth = SCREEN_WIDTH - 100;
@@ -136,6 +145,10 @@ function HealthTrend({ logs, loading, onShowInfo }: { logs: Log[], loading: bool
 					width={chartWidth}
 					maxValue={maxValue}
 					noOfSections={3}
+					stepValue={1}
+					hideRules={false}
+					rulesType="solid"
+					rulesColor="#f3f4f6"
 					disableScroll={true}
 					initialSpacing={horizontalPadding}
 					endSpacing={horizontalPadding}
@@ -156,8 +169,8 @@ function HealthTrend({ logs, loading, onShowInfo }: { logs: Log[], loading: bool
 					xAxisLabelTextStyle={{ color: '#6b7280', fontSize: 10 }}
 					yAxisColor="transparent"
 					yAxisThickness={0}
-					hideYAxisText
-					hideRules
+					yAxisTextStyle={{ color: '#9ca3af', fontSize: 10 }}
+					hideYAxisText={false}
 					pointerConfig={{
 						pointerStripHeight: 140,
 						pointerStripColor: 'rgba(8, 113, 121, 0.2)',
@@ -165,9 +178,11 @@ function HealthTrend({ logs, loading, onShowInfo }: { logs: Log[], loading: bool
 						pointerColor: '#087179',
 						radius: 6,
 						pointerLabelComponent: (items: any) => {
+							const labels = ['None', 'Mild', 'Moderate', 'Severe'];
+							const val = items[0].value;
 							return (
 								<View style={styles.pointerLabel}>
-									<Text style={{ color: '#087179', fontWeight: 'bold' }}>{items[0].value} L/min</Text>
+									<Text style={{ color: '#087179', fontWeight: 'bold' }}>{labels[val] || 'None'}</Text>
 								</View>
 							);
 						},
@@ -175,7 +190,7 @@ function HealthTrend({ logs, loading, onShowInfo }: { logs: Log[], loading: bool
 				/>
 				{!hasData && !loading && (
 					<View style={styles.noDataOverlay}>
-						<Text style={styles.noDataText}>Start logging PEF to see trends</Text>
+						<Text style={styles.noDataText}>Start logging symptoms to see trends</Text>
 					</View>
 				)}
 				{loading && (
@@ -306,7 +321,7 @@ function RecentActivity({ logs }: { logs: Log[] }) {
 								)}
 							</View>
 							<Text style={styles.medicalHistoryContainerRightText2}>
-								PEF: {log.peakFlow || '--'} L/min • {log.symptoms?.[0]?.name || 'Routine check'}
+								{log.symptoms?.[0]?.name || 'Routine check'} • Max Severity: {severityLevel.label}
 							</Text>
 						</View>
 						<IconSymbol name="chevron.right" size={16} color="#9ca3af" style={{ marginLeft: 'auto' }} />
@@ -328,6 +343,8 @@ export default function HomeScreen() {
 	const [infoModal, setInfoModal] = useState({ visible: false, title: '', content: '' });
 	const isInitialMount = useRef(true);
 
+	const { user, streakCount, userName, refreshProfile } = useAuth();
+
 	useFocusEffect(
 		useCallback(() => {
 			const initializeData = async () => {
@@ -340,6 +357,7 @@ export default function HomeScreen() {
 				// If it's the initial mount, force a refresh for everything
 				const forceAll = isInitialMount.current;
 
+				await refreshProfile();
 				await loadRecentLogs(forceAll || logsStale === 'true');
 				await loadReminders(forceAll || remindersStale === 'true');
 				await checkStreakModal();
@@ -359,18 +377,18 @@ export default function HomeScreen() {
 			};
 
 			initializeData();
-		}, [])
+		}, [refreshProfile])
 	);
 
-	const { user, streakCount, userName } = useAuth();
 
 	const checkStreakModal = async () => {
 		try {
-			const lastShown = await AsyncStorage.getItem('LAST_STREAK_MODAL_DATE');
+			const showModalFlag = await AsyncStorage.getItem('SHOW_STREAK_MODAL');
 			const today = new Date().toISOString().split('T')[0];
 
-			if (streakCount > 0 && lastShown !== today) {
+			if (showModalFlag === 'true') {
 				setStreakModalVisible(true);
+				await AsyncStorage.setItem('SHOW_STREAK_MODAL', 'false');
 				await AsyncStorage.setItem('LAST_STREAK_MODAL_DATE', today);
 			}
 		} catch (error) {
@@ -461,8 +479,8 @@ export default function HomeScreen() {
 		} else {
 			setInfoModal({
 				visible: true,
-				title: 'PEF Trend Graph',
-				content: 'The trend graph shows your Peak Flow (PEF) values over the last week. Peak Flow measures how fast you can breathe out. A steady or rising line indicates stable lung function, while a drop may signal an upcoming flare-up.'
+				title: 'Symptom Trend Graph',
+				content: 'The trend graph shows your maximum symptom severity over the last week.\n\n0: No symptoms\n1: Mild symptoms\n2: Moderate symptoms\n3: Severe symptoms'
 			});
 		}
 	};

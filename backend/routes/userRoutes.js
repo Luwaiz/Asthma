@@ -21,17 +21,10 @@ router.get('/profile', authMiddleware, async (req, res) => {
                 userId: req.user.uid,
                 displayName: req.user.name || req.user.email?.split('@')[0] || 'User',
                 asthmaLevel: 'Mild',
-                streakCount: 1,
-                lastVisitDate: new Date()
+                streakCount: 0, // Start at 0, will become 1 on first log
+                lastVisitDate: null
             });
             await profile.save();
-        } else {
-            // Only update lastVisitDate for visit tracking, DO NOT update streak here
-            const today = new Date();
-            if (!profile.lastVisitDate || !isSameDay(profile.lastVisitDate, today)) {
-                profile.lastVisitDate = today;
-                await profile.save();
-            }
         }
 
         res.json(profile);

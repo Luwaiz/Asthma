@@ -5,7 +5,7 @@ import { apiService } from '@/services/api';
 import { router } from 'expo-router';
 import { updateProfile } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View, Platform } from 'react-native';
+import { ActivityIndicator, Alert, Modal, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View, Platform, Linking } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { HospitalList } from '@/components/HospitalList';
 
@@ -207,6 +207,14 @@ function Triggers({ triggers }: { triggers: string[] }) {
 }
 
 function EmergencyContact({ contact }: { contact: { name: string, phone: string } | undefined }) {
+  const handleCallContact = () => {
+    if (contact && contact.phone) {
+      Linking.openURL(`tel:${contact.phone}`);
+    } else {
+      Alert.alert('Error', 'No phone number available for this contact.');
+    }
+  };
+
   if (!contact || !contact.name) {
     return (
       <View style={styles.emergencyContactContainer}>
@@ -223,14 +231,16 @@ function EmergencyContact({ contact }: { contact: { name: string, phone: string 
         <View style={styles.emergencyContactListContainerItem}>
           <IconSymbol name="person.fill" size={24} color="#087179" />
           <View style={styles.emergencyContactListContainerItemInfo}>
-
             <View>
               <Text style={styles.emergencyContactListContainerItemText}>{contact.name}</Text>
               <Text style={styles.emergencyContactListContainerItemText2}>{contact.phone}</Text>
             </View>
-            <View style={styles.emergencyContactListContainerItemRight}>
+            <TouchableOpacity 
+              style={styles.emergencyContactListContainerItemRight}
+              onPress={handleCallContact}
+            >
               <IconSymbol name="phone.fill" size={20} color="#087179" />
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
