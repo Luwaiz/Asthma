@@ -52,6 +52,10 @@ const UserProfileSchema = new mongoose.Schema({
     lastVisitDate: {
         type: Date,
     },
+    pin: {
+        type: String,
+        required: false,
+    },
 }, { timestamps: true });
 
 module.exports = mongoose.model('UserProfile', UserProfileSchema);

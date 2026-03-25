@@ -37,7 +37,7 @@ router.get('/profile', authMiddleware, async (req, res) => {
 // @route   PUT /api/users/profile
 // @desc    Update user profile
 router.put('/profile', authMiddleware, async (req, res) => {
-    const { displayName, asthmaLevel, emergencyContact, triggers, yearsWithAsthma, medicalConditions, dateOfBirth, gender, pushToken, onboardingCompleted } = req.body;
+    const { displayName, asthmaLevel, emergencyContact, triggers, yearsWithAsthma, medicalConditions, dateOfBirth, gender, pushToken, onboardingCompleted, pin } = req.body;
     const userId = req.user.uid;
 
     console.log(`PUT /api/users/profile received for user ${userId}:`, { displayName, asthmaLevel, pushToken, onboardingCompleted });
@@ -58,6 +58,7 @@ router.put('/profile', authMiddleware, async (req, res) => {
                 dateOfBirth,
                 gender,
                 onboardingCompleted,
+                pin,
             });
         } else {
             // Update existing profile
@@ -71,6 +72,7 @@ router.put('/profile', authMiddleware, async (req, res) => {
             if (gender !== undefined) profile.gender = gender;
             if (pushToken !== undefined) profile.pushToken = pushToken;
             if (onboardingCompleted !== undefined) profile.onboardingCompleted = onboardingCompleted;
+            if (pin !== undefined) profile.pin = pin;
         }
 
         await profile.save();

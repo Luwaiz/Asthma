@@ -35,7 +35,8 @@ const styles = StyleSheet.create({
 
     scrollContent: {
         paddingHorizontal: 20,
-        paddingVertical: 10,
+        paddingTop: 10,
+        paddingBottom: 120, // Increased bottom padding for full scrollability
     },
 
     card: {

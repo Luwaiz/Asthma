@@ -3,7 +3,7 @@ import { Redirect } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 
 export default function Index() {
-    const { user, loading, onboardingCompleted } = useAuth();
+    const { user, loading, onboardingCompleted, isAppLocked } = useAuth();
 
     if (loading) {
         return (
@@ -14,6 +14,9 @@ export default function Index() {
     }
 
     if (user) {
+        if (isAppLocked) {
+            return <Redirect href="/login?mode=pin" />;
+        }
         if (!onboardingCompleted) {
             return <Redirect href="/intro-survey" />;
         }

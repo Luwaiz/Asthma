@@ -21,31 +21,36 @@ import {
 } from 'react-native'
 
 const Register = () => {
-  const { user, loading } = useAuth()
+  const { user, loading: authLoading } = useAuth() // Renamed to avoid conflict
   const [fullName, setFullName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [pin, setPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [showPassword, setShowPassword] = useState(false) // Kept this
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [agreeToTerms, setAgreeToTerms] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(false); // Kept this for local loading state
 
 
   const handleRegister = async () => {
-    if (!email || !password || !fullName || !confirmPassword) {
+    if (!email || !password || !fullName || !confirmPassword || !pin || !confirmPin) {
       alert('Please fill in all fields')
       return
     }
 
     if (password !== confirmPassword) {
-      alert('PINs do not match')
-      return
+      alert('Passwords do not match');
+      return;
     }
-
-    if (password.length !== 6) {
-      alert('PIN must be exactly 6 digits')
-      return
+    if (pin.length !== 6 || confirmPin.length !== 6) {
+      alert('PIN must be exactly 6 digits');
+      return;
+    }
+    if (pin !== confirmPin) {
+      alert('PINs do not match');
+      return;
     }
     if (!agreeToTerms) {
       alert('Please agree to the terms and conditions')
@@ -54,20 +59,20 @@ const Register = () => {
 
     setIsLoading(true)
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-      const user = userCredential.user
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
 
       // Update Firebase Auth profile with full name
       await updateProfile(user, {
         displayName: fullName
       })
 
-      // Explicitly sync the name to the backend immediately
-      // This prevents the email-prefix fallback in the backend profile
-      await apiService.updateUserProfile({ displayName: fullName })
-
-      // Note: backend profile is already created or updated by the call above.
-      // onboardingCompleted starts as false.
+      // 2. Setup user profile on backend with PIN
+      await apiService.updateUserProfile({
+        displayName: fullName, // Use fullName from state
+        onboardingCompleted: false,
+        pin: pin
+      });
 
       console.log('Registered user:', user.uid)
       router.replace('/intro-survey')
@@ -78,7 +83,7 @@ const Register = () => {
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = 'This email is already in use'
       } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'PIN is too weak'
+        errorMessage = 'Password is too weak'
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = 'Invalid email format'
       } else if (error.code) {
@@ -157,21 +162,19 @@ const Register = () => {
             </View>
           </View>
 
-          {/* PIN Input */}
+          {/* Password Input */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>6-Digit PIN</Text>
+            <Text style={styles.inputLabel}>Password</Text>
             <View style={styles.inputWrapper}>
-              <IconSymbol name="number" size={20} color="#9ca3af" />
+              <IconSymbol name="lock.fill" size={20} color="#9ca3af" />
               <TextInput
                 style={styles.textInput}
-                placeholder="Create a 6-digit PIN"
+                placeholder="Create a password"
                 placeholderTextColor="#9ca3af"
                 value={password}
-                onChangeText={(val) => setPassword(val.replace(/[^0-9]/g, ''))}
+                onChangeText={setPassword}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
-                keyboardType="numeric"
-                maxLength={6}
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 <IconSymbol
@@ -183,21 +186,19 @@ const Register = () => {
             </View>
           </View>
 
-          {/* Confirm PIN Input */}
+          {/* Confirm Password Input */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Confirm PIN</Text>
+            <Text style={styles.inputLabel}>Confirm Password</Text>
             <View style={styles.inputWrapper}>
-              <IconSymbol name="number" size={20} color="#9ca3af" />
+              <IconSymbol name="lock.fill" size={20} color="#9ca3af" />
               <TextInput
                 style={styles.textInput}
-                placeholder="Confirm your 6-digit PIN"
+                placeholder="Confirm your password"
                 placeholderTextColor="#9ca3af"
                 value={confirmPassword}
-                onChangeText={(val) => setConfirmPassword(val.replace(/[^0-9]/g, ''))}
+                onChangeText={setConfirmPassword}
                 secureTextEntry={!showConfirmPassword}
                 autoCapitalize="none"
-                keyboardType="numeric"
-                maxLength={6}
               />
               <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
                 <IconSymbol
@@ -206,6 +207,42 @@ const Register = () => {
                   color="#9ca3af"
                 />
               </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* PIN Input */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Setup 6-Digit PIN (for daily login)</Text>
+            <View style={styles.inputWrapper}>
+              <IconSymbol name="number" size={20} color="#9ca3af" />
+              <TextInput
+                style={styles.textInput}
+                placeholder="000000"
+                placeholderTextColor="#9ca3af"
+                value={pin}
+                onChangeText={(val) => setPin(val.replace(/[^0-9]/g, ''))}
+                keyboardType="numeric"
+                maxLength={6}
+                secureTextEntry
+              />
+            </View>
+          </View>
+
+          {/* Confirm PIN Input */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Confirm PIN</Text>
+            <View style={styles.inputWrapper}>
+              <IconSymbol name="number" size={20} color="#9ca3af" />
+              <TextInput
+                style={styles.textInput}
+                placeholder="Confirm your PIN"
+                placeholderTextColor="#9ca3af"
+                value={confirmPin}
+                onChangeText={(val) => setConfirmPin(val.replace(/[^0-9]/g, ''))}
+                keyboardType="numeric"
+                maxLength={6}
+                secureTextEntry
+              />
             </View>
           </View>
 

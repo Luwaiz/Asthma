@@ -1,8 +1,8 @@
-import { IconSymbol } from '@/components/ui/icon-symbol'
+import { useAuth } from '@/context/AuthContext'
 import { auth } from '@/firebaseConfig'
-import { router } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import { signInWithEmailAndPassword } from 'firebase/auth'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   Image,
@@ -18,51 +18,57 @@ import {
   View
 } from 'react-native'
 
-import { useAuth } from '@/context/AuthContext'
+import { IconSymbol } from '@/components/ui/icon-symbol'
 
 const Login = () => {
-  const { user, loading } = useAuth()
+  const { user, loading: authLoading, isAppLocked, unlockWithPin } = useAuth()
+  const params = useLocalSearchParams()
+  const [mode, setMode] = useState<'pin' | 'email'>((params.mode as any) || 'email')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [pin, setPin] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      alert('Please fill in all fields')
-      return
+  useEffect(() => {
+    if (params.mode) {
+      setMode(params.mode as any)
+    } else if (isAppLocked && user) {
+      setMode('pin')
     }
+  }, [params.mode, isAppLocked, user])
 
-    setIsLoading(true)
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password)
-      const user = userCredential.user
-      console.log('Logged in user:', user.uid)
-
-      // We need to wait for the profile to be fetched by AuthContext or fetch it here
-      // To ensure a smooth transition, we can use the AuthContext's state if it updates quickly enough, 
-      // or check the profile here manually.
-      // Since AuthContext already manages this, let's use router.replace('/') 
-      // which will trigger app/index.tsx logic
-      router.replace('/')
-    } catch (error: any) {
-      console.error('Login error:', error)
-      let errorMessage = 'An error occurred during sign in'
-
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        errorMessage = 'Invalid email or PIN'
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Invalid email format'
-      } else if (error.code) {
-        errorMessage = `Sign in failed: ${error.code}\n${error.message}`
-      } else {
-        errorMessage = `Sign in failed: ${error.toString()}`
+  const handleLogin = async () => {
+    if (mode === 'email') {
+      if (!email || !password) {
+        alert('Please fill in all fields')
+        return
       }
-
-      alert(errorMessage)
-    } finally {
+      setIsLoading(true)
+      try {
+        await signInWithEmailAndPassword(auth, email, password)
+        router.replace('/')
+      } catch (error: any) {
+        console.error('Login error:', error)
+        alert('Invalid email or password')
+      } finally {
+        setIsLoading(false)
+      }
+    } else {
+      // PIN Mode
+      if (pin.length !== 6) {
+        alert('Please enter your 6-digit PIN')
+        return
+      }
+      setIsLoading(true)
+      const success = await unlockWithPin(pin)
       setIsLoading(false)
+      if (success) {
+        router.replace('/')
+      } else {
+        alert('Invalid PIN')
+      }
     }
   }
 
@@ -88,69 +94,102 @@ const Login = () => {
               />
             </View>
           </View>
-          <Text style={styles.welcomeText}>Welcome Back</Text>
-          <Text style={styles.subtitleText}>Sign in to continue managing your asthma</Text>
+          <Text style={styles.welcomeText}>
+            {mode === 'pin' ? 'Daily Unlock' : 'Welcome Back'}
+          </Text>
+          <Text style={styles.subtitleText}>
+            {mode === 'pin' 
+              ? 'Enter your 6-digit PIN to continue' 
+              : 'Sign in to continue managing your asthma'}
+          </Text>
         </View>
 
         {/* Form Section */}
         <View style={styles.formSection}>
-          {/* Email Input */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Email Address</Text>
-            <View style={styles.inputWrapper}>
-              <IconSymbol name="envelope.fill" size={20} color="#9ca3af" />
-              <TextInput
-                style={styles.textInput}
-                placeholder="Enter your email"
-                placeholderTextColor="#9ca3af"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
-              />
-            </View>
-          </View>
-
-          {/* PIN Input */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>6-Digit PIN</Text>
-            <View style={styles.inputWrapper}>
-              <IconSymbol name="number" size={20} color="#9ca3af" />
-              <TextInput
-                style={styles.textInput}
-                placeholder="Enter 6-digit PIN"
-                placeholderTextColor="#9ca3af"
-                value={password}
-                onChangeText={(val) => setPassword(val.replace(/[^0-9]/g, ''))}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                keyboardType="numeric"
-                maxLength={6}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <IconSymbol
-                  name={showPassword ? "eye.slash.fill" : "eye.fill"}
-                  size={20}
-                  color="#9ca3af"
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Remember Me & Forgot Password */}
-          <View style={styles.optionsRow}>
-            <TouchableOpacity
-              style={styles.rememberMeContainer}
-              onPress={() => setRememberMe(!rememberMe)}
-            >
-              <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
-                {rememberMe && <IconSymbol name="checkmark" size={14} color="white" />}
+          {mode === 'email' ? (
+            <>
+              {/* Email Input */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Email Address</Text>
+                <View style={styles.inputWrapper}>
+                  <IconSymbol name="envelope.fill" size={20} color="#9ca3af" />
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="Enter your email"
+                    placeholderTextColor="#9ca3af"
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                  />
+                </View>
               </View>
-              <Text style={styles.rememberMeText}>Remember me</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push('/forgot-password')}>
-              <Text style={styles.forgotPasswordText}>Forgot PIN?</Text>
+
+              {/* Password Input */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Password</Text>
+                <View style={styles.inputWrapper}>
+                  <IconSymbol name="lock.fill" size={20} color="#9ca3af" />
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="Enter password"
+                    placeholderTextColor="#9ca3af"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                    <IconSymbol
+                      name={showPassword ? "eye.slash.fill" : "eye.fill"}
+                      size={20}
+                      color="#9ca3af"
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </>
+          ) : (
+            /* PIN Input */
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>6-Digit PIN</Text>
+              <View style={styles.inputWrapper}>
+                <IconSymbol name="number" size={20} color="#9ca3af" />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="000000"
+                  placeholderTextColor="#9ca3af"
+                  value={pin}
+                  onChangeText={(val) => setPin(val.replace(/[^0-9]/g, ''))}
+                  secureTextEntry
+                  keyboardType="numeric"
+                  maxLength={6}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* Options Row */}
+          <View style={styles.optionsRow}>
+            {mode === 'email' ? (
+              <TouchableOpacity
+                style={styles.rememberMeContainer}
+                onPress={() => setRememberMe(!rememberMe)}
+              >
+                <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                  {rememberMe && <IconSymbol name="checkmark" size={14} color="white" />}
+                </View>
+                <Text style={styles.rememberMeText}>Remember me</Text>
+              </TouchableOpacity>
+            ) : (
+              <View />
+            )}
+            
+            <TouchableOpacity onPress={() => mode === 'pin' ? setMode('email') : router.push('/forgot-password')}>
+              <Text style={styles.forgotPasswordText}>
+                {mode === 'pin' ? 'Switch Account' : 'Forgot Password?'}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -164,8 +203,10 @@ const Login = () => {
               <ActivityIndicator color="white" />
             ) : (
               <>
-                <Text style={styles.loginButtonText}>Sign In</Text>
-                <IconSymbol name="arrow.right" size={20} color="white" />
+                <Text style={styles.loginButtonText}>
+                  {mode === 'pin' ? 'Unlock App' : 'Sign In'}
+                </Text>
+                <IconSymbol name={mode === 'pin' ? "lock.open.fill" : "arrow.right"} size={20} color="white" />
               </>
             )}
           </Pressable>
